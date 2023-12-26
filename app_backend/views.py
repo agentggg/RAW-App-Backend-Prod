@@ -17,7 +17,6 @@ import pytz
 from django.db.models import Prefetch
 from collections import defaultdict
 import json
-from django.db.models import Prefetch
 
 def analytics(request, endpoint):
     try:
@@ -454,16 +453,16 @@ def project_details(request):
             project_details = ProjectDetails.objects.filter(name=project_id, deliverableOwner=username_id).values(
                 'name__name',
                 'deliverableName',
-                'deliverableColor',
                 'deliverableDetails',
                 'deliverableOwner__first_name', 
                 'deliverableOwner__last_name',
                 'deliverableOwner__username',
                 'watchers__username',           
                 'deliverableStatus',
+                'deliverableColor',
                 'id' 
             ) 
-            print(project_details)
+            return Response(project_details)
         project_details = ProjectDetails.objects.filter(name=project_id).values(
             'name__name',
             'deliverableName',
@@ -493,14 +492,19 @@ def project_details(request):
 def project_notes(request):
     try:
         deliverableId = request.data.get('deliverableId', False)
-        print(f"==>> deliverableId: {deliverableId}")
-        deliverableNotes = ProjectNotes.objects.filter(project_details_name=deliverableId).values()
-        print(f"==>> deliverableNotes: {deliverableNotes}")
+        deliverableNotes = ProjectNotes.objects.filter(
+        project_details_name=deliverableId
+            ).values(
+                'notes',
+                'noteAuthor__first_name',
+                'noteAuthor__last_name',
+                'noteAuthor__username'
+            )
         return Response(deliverableNotes)
     except Exception as e:
         print(e)
         return Response('Unsuccessful')
-
+ 
 @api_view(['POST'])
 def create_account(request):
     # analytics(request, "New Account Created")
