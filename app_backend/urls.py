@@ -7,7 +7,8 @@ def trigger_error(request):
 
 urlpatterns = [
     path('project_info', project_info, name='project_info'),
-
+    path('project_cost', project_cost, name='project_cost'),
+    path('project_details', project_details, name='project_details'),
 
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),

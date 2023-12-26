@@ -15,7 +15,8 @@ from rest_framework import status
 from user_agents import parse
 import pytz
 from django.db.models import Prefetch
-
+import json 
+from django.db.models import F
 
 def reuseableFunctions(**kwargs): 
     # print(kwargs)
@@ -430,6 +431,8 @@ def project_info(request):
                 'live': project.live,
                 'completed': project.completed,
                 'review': project.review,
+                'type': project.projectType,
+                'startDate': project.startDate,
                 'watchers': [
                     {
                         'first_name': watcher.first_name,
@@ -442,15 +445,37 @@ def project_info(request):
                 ]
             }
             projects_data.append(project_data)
-        # allProjects = Project.objects.select_related('watchers').values(
-        #     'id', 'name', 'flag', 'dueDate', 'shortDescription', 'longDescription',
-        #     'image', 'color', 'initation', 'planning', 'execution', 'live', 'watchers',
-        #     'completed', 'review', 'watchers__first_name', 'watchers__last_name',
-        #     'watchers__id', 'watchers__username', 'watchers__color' 
-        # )
-        # print(projects_data)
         return Response(projects_data)
     return Response(None)
+
+@api_view(['POST'])
+def project_cost(request):
+    try:
+        request.data.get('project_id', False)
+        allCostReport = ProjectExpense.objects.values()
+        return Response(allCostReport)
+    except Exception as err:
+            print(err)
+            return Response('unsuccessful')
+
+@api_view(['POST'])
+def project_details(request):
+    try:
+        project_id = request.data.get('project_id', False)
+        project_details = ProjectDetails.objects.filter(name=project_id).values(
+            'name',
+            'deliverableName',
+            'deliverableDetails',
+            'deliverableOwner__first_name', 
+            'deliverableOwner__last_name',
+            'watchers__username',          
+            'deliverableStatus'
+        )       
+        return Response(project_details)
+    except Exception as err:
+            print(err)
+            return Response('unsuccessful')
+
 @api_view(['POST'])
 def create_account(request):
     # analytics(request, "New Account Created")

@@ -9,7 +9,7 @@ admin.site.register(Analytics, AnalyticsAdmin)
 admin.site.register(PushToken)
 admin.site.register(AutomatedNotification)
 admin.site.register(CustomUser)
-
+admin.site.register(ProjectExpense)
 admin.site.register(Project)
 admin.site.register(ProjectDetails)
 admin.site.register(ProjectReporting)
