@@ -15,26 +15,9 @@ from rest_framework import status
 from user_agents import parse
 import pytz
 from django.db.models import Prefetch
-import json 
-from django.db.models import F
-
-def reuseableFunctions(**kwargs): 
-    # print(kwargs)
-    if kwargs["view"] == "word_feedback":
-        try:
-            # {'word': 'ApiEndPointTest', 'feedback': 'good', 'feedback_notes': 'username', 'view': 'word_feedback'}
-            results = word_feedback_update(kwargs["word"], kwargs["feedback"], kwargs["feedback_notes"])
-            if results == 200:
-                print("word feedback update successful")
-                return(200)
-            else:
-                print("word feedback update successful")
-                return(500)
-        except Exception as e:
-            print(e)
-    else:
-        print("no value in the reuseable componenet")
-        pass
+from collections import defaultdict
+import json
+from django.db.models import Prefetch
 
 def analytics(request, endpoint):
     try:
@@ -460,21 +443,63 @@ def project_cost(request):
 
 @api_view(['POST'])
 def project_details(request):
-    try:
+    try: 
         project_id = request.data.get('project_id', False)
+        if project_id == False:
+            api_post_data_str = request.data.get('apiPostData')
+            api_post_data = json.loads(api_post_data_str)
+            stakeholder = api_post_data.get('stakeholder')
+            project_id = api_post_data.get('project_id')
+            username_id = CustomUser.objects.get(username=stakeholder)
+            project_details = ProjectDetails.objects.filter(name=project_id, deliverableOwner=username_id).values(
+                'name__name',
+                'deliverableName',
+                'deliverableColor',
+                'deliverableDetails',
+                'deliverableOwner__first_name', 
+                'deliverableOwner__last_name',
+                'deliverableOwner__username',
+                'watchers__username',           
+                'deliverableStatus',
+                'id' 
+            ) 
+            print(project_details)
         project_details = ProjectDetails.objects.filter(name=project_id).values(
-            'name',
+            'name__name',
             'deliverableName',
             'deliverableDetails',
             'deliverableOwner__first_name', 
             'deliverableOwner__last_name',
-            'watchers__username',          
-            'deliverableStatus'
-        )       
-        return Response(project_details)
+            'deliverableOwner__username',
+            'watchers__username',           
+            'deliverableStatus',
+            'id',
+            'name'
+        )  
+        unique_usernames = defaultdict(dict)     
+        filtered_project_details = []
+        for detail in project_details:
+            username = detail['deliverableOwner__username']
+            if username not in unique_usernames:
+                unique_usernames[username] = detail
+                filtered_project_details.append(detail)
+
+        return Response(filtered_project_details)
     except Exception as err:
             print(err)
             return Response('unsuccessful')
+
+@api_view(['POST'])
+def project_notes(request):
+    try:
+        deliverableId = request.data.get('deliverableId', False)
+        print(f"==>> deliverableId: {deliverableId}")
+        deliverableNotes = ProjectNotes.objects.filter(project_details_name=deliverableId).values()
+        print(f"==>> deliverableNotes: {deliverableNotes}")
+        return Response(deliverableNotes)
+    except Exception as e:
+        print(e)
+        return Response('Unsuccessful')
 
 @api_view(['POST'])
 def create_account(request):

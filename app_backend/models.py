@@ -61,22 +61,23 @@ class Project(models.Model):
 
 class ProjectDetails(models.Model):
     name = models.ForeignKey(Project, on_delete=models.CASCADE)
-    deliverableName = models.TextField(null=False, blank=False)
-    deliverableDetails = models.TextField(null=False, blank=False)
+    deliverableName = models.TextField()
+    deliverableDetails = models.TextField()
     deliverableOwner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_owner')
-    watchers = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_watcher')
-    deliverableStatus = models.TextField(null=False, blank=False)
+    watchers = models.ManyToManyField(CustomUser, related_name='project_details_as_watcher')
+    deliverableStatus = models.TextField()
+    deliverableColor = models.TextField()
 
     def __str__(self):
-        return str(self.name)
+        return str(self.deliverableName)
     
-class ProjectReporting(models.Model):
-    name = models.ForeignKey(Project, on_delete=models.CASCADE)
+class ProjectNotes(models.Model):
+    project_details_name = models.ForeignKey(ProjectDetails, on_delete=models.CASCADE)
     notes = models.TextField(null=False, blank=False)
-    comments = models.TextField(null=False, blank=False)
+    noteAuthor = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
 
     def __str__(self):
-        return str(self.name)
+        return str(self.project_details_name)
 
 class ProjectExpense(models.Model):
     projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
