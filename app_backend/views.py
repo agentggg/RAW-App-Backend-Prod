@@ -460,7 +460,8 @@ def project_details(request):
                 'watchers__username',           
                 'deliverableStatus',
                 'deliverableColor',
-                'id' 
+                'id',
+                'deliverableCompletion'
             ) 
             return Response(project_details)
         project_details = ProjectDetails.objects.filter(name=project_id).values(

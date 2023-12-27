@@ -67,6 +67,8 @@ class ProjectDetails(models.Model):
     watchers = models.ManyToManyField(CustomUser, related_name='project_details_as_watcher')
     deliverableStatus = models.TextField()
     deliverableColor = models.TextField()
+    deliverableCompletion = models.TextField() 
+
 
     def __str__(self):
         return str(self.deliverableName)
