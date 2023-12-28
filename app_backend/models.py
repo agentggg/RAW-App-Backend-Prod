@@ -13,6 +13,7 @@ REGEX_PHONE_NUMBER = RegexValidator(regex=r'^\d{10}$', message="PHONE MUST BE 10
 
 class CustomUser(AbstractUser):
     color = models.TextField(null=False, blank=False, default='#000')
+    profile_access = models.TextField(null=False, blank=False)
 
     def __str__(self):
         return str(self.username)
@@ -53,7 +54,7 @@ class Project(models.Model):
     watchers = models.ManyToManyField('CustomUser', related_name='watched_projects')
     projectType = models.TextField(null=False, blank=False)
     startDate = models.TextField(null=False, blank=False)
-
+    projectStakeholders = models.ManyToManyField('CustomUser', related_name='project_stakeholders')
 
 
     def __str__(self):

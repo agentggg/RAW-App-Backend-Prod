@@ -313,9 +313,8 @@ def login_verification(request):
         'last_name': user.last_name,
         'username': user.username,
         'email': user.email,
-        'profile_name': user.profile_name,
-        'premium': user.premium,
-        'active': user.is_active
+        'active': user.is_active,
+        'profile_access':user.profile_access
     })
 
 @api_view(['GET', 'POST'])
@@ -390,12 +389,15 @@ def save_push_token(request):
             print(err)
             return Response('unsuccessful')
 
+
+
 @api_view(['POST'])
 def project_info(request):
     infoType = request.data.get('infoType', False)
     if infoType == 'project':
         watchers_prefetch = Prefetch('watchers', queryset=CustomUser.objects.only('first_name', 'last_name', 'id', 'username', 'color'))
-        all_projects = Project.objects.prefetch_related(watchers_prefetch)
+        stakeholders_prefetch = Prefetch('projectStakeholders', queryset=CustomUser.objects.only('first_name', 'last_name', 'id', 'username', 'color'))
+        all_projects = Project.objects.prefetch_related(watchers_prefetch, stakeholders_prefetch)
         projects_data = []
         for project in all_projects:
             project_data = {
@@ -424,9 +426,20 @@ def project_info(request):
                         'color': watcher.color
                     }
                     for watcher in project.watchers.all()
+                ],
+                'projectStakeholders': [
+                    {
+                        'first_name': stakeholder.first_name,
+                        'last_name': stakeholder.last_name,
+                        'id': stakeholder.id,
+                        'username': stakeholder.username,
+                        'color': stakeholder.color
+                    }
+                    for stakeholder in project.projectStakeholders.all()
                 ]
             }
             projects_data.append(project_data)
+            # print(project_data)
         return Response(projects_data)
     return Response(None)
 
