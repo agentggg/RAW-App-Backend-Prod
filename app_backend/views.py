@@ -403,7 +403,7 @@ def project_info(request):
             project_data = {
                 'id': project.id,
                 'name': project.name,
-                'flag': project.flag,
+                'flag': project.flag, 
                 'dueDate': project.dueDate,
                 'shortDescription': project.shortDescription,
                 'longDescription': project.longDescription,
@@ -450,8 +450,8 @@ def project_cost(request):
         allCostReport = ProjectExpense.objects.values()
         return Response(allCostReport)
     except Exception as err:
-            print(err)
-            return Response('unsuccessful')
+        print(err)
+        return Response('unsuccessful')
 
 @api_view(['POST'])
 def project_details(request):
@@ -496,11 +496,44 @@ def project_details(request):
             if username not in unique_usernames:
                 unique_usernames[username] = detail
                 filtered_project_details.append(detail)
-
+        # print(filtered_project_details)
         return Response(filtered_project_details)
     except Exception as err:
             print(err)
             return Response('unsuccessful')
+
+@api_view(['POST'])
+def project_deliverables(request):
+    try: 
+        project_id = request.data.get('project_id', False)
+        project_details = ProjectDetails.objects.filter(name=project_id).values(
+            'name__name',
+            'deliverableName',
+            'deliverableDetails',
+            'deliverableOwner__first_name', 
+            'deliverableOwner__last_name',
+            'deliverableOwner__username',
+            'watchers__username',           
+            'deliverableStatus',
+            'id',
+            'name'
+        )  
+        return Response(project_details)
+    except Exception as err:
+            print(err)
+            return Response('unsuccessful')
+
+@api_view(['POST'])
+def project_details_update(request):
+    project_id = request.data.get('project_id', False)
+    json_string = project_id
+    data = json.loads(json_string)
+    projectId = data['project_id']
+    editableStatus = data['editableStatus']
+    editableNotes = data['editableNotes']
+    if editableStatus != False:
+        ProjectDetails.objects.filter(name=projectId).update(deliverableStatus=editableStatus)
+    return Response('successful')
 
 @api_view(['POST'])
 def project_notes(request):

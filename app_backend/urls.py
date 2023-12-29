@@ -10,6 +10,8 @@ urlpatterns = [
     path('project_cost', project_cost, name='project_cost'),
     path('project_details', project_details, name='project_details'),
     path('project_notes', project_notes, name='project_notes'),
+    path('project_details_update', project_details_update, name='project_details_update'),
+    path('project_deliverables', project_deliverables, name='project_deliverables'),
 
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),
