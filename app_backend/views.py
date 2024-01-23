@@ -395,52 +395,8 @@ def save_push_token(request):
 def project_info(request):
     infoType = request.data.get('infoType', False)
     if infoType == 'project':
-        watchers_prefetch = Prefetch('watchers', queryset=CustomUser.objects.only('first_name', 'last_name', 'id', 'username', 'color'))
-        stakeholders_prefetch = Prefetch('projectStakeholders', queryset=CustomUser.objects.only('first_name', 'last_name', 'id', 'username', 'color'))
-        all_projects = Project.objects.prefetch_related(watchers_prefetch, stakeholders_prefetch)
-        projects_data = []
-        for project in all_projects:
-            project_data = {
-                'id': project.id,
-                'name': project.name,
-                'flag': project.flag, 
-                'dueDate': project.dueDate,
-                'shortDescription': project.shortDescription,
-                'longDescription': project.longDescription,
-                'image': project.image,
-                'color': project.color,
-                'initation': project.initation,
-                'planning': project.planning,
-                'execution': project.execution,
-                'live': project.live,
-                'completed': project.completed,
-                'review': project.review,
-                'type': project.projectType,
-                'startDate': project.startDate,
-                'watchers': [
-                    {
-                        'first_name': watcher.first_name,
-                        'last_name': watcher.last_name,
-                        'id': watcher.id,
-                        'username': watcher.username,
-                        'color': watcher.color
-                    }
-                    for watcher in project.watchers.all()
-                ],
-                'projectStakeholders': [
-                    {
-                        'first_name': stakeholder.first_name,
-                        'last_name': stakeholder.last_name,
-                        'id': stakeholder.id,
-                        'username': stakeholder.username,
-                        'color': stakeholder.color
-                    }
-                    for stakeholder in project.projectStakeholders.all()
-                ]
-            }
-            projects_data.append(project_data)
-            # print(project_data)
-        return Response(projects_data)
+        projectDetails = Project.objects.select_related('projectType').prefetch_related('projectStakeholders').values()
+        return Response(projectDetails)
     return Response(None)
 
 @api_view(['POST'])
@@ -520,20 +476,35 @@ def project_deliverables(request):
         )  
         return Response(project_details)
     except Exception as err:
-            print(err)
-            return Response('unsuccessful')
+        print(err)
+        return Response('unsuccessful')
 
 @api_view(['POST'])
 def project_details_update(request):
     project_id = request.data.get('project_id', False)
+    print(f"==>> project_id: {project_id}") 
     json_string = project_id
     data = json.loads(json_string)
-    projectId = data['project_id']
     editableStatus = data['editableStatus']
     editableNotes = data['editableNotes']
-    if editableStatus != False:
-        ProjectDetails.objects.filter(name=projectId).update(deliverableStatus=editableStatus)
+    timestamp = data['time']
+    status = data['status']
+    deliverableId = data['id']
+    try:
+        projectStatus = ProjectDetails.objects.get(id=deliverableId)
+        projectNotes = ProjectNotes.objects.get(id=deliverableId)
+        print(f"==>> projectNotes: {projectNotes}")
+        'no changes' if editableStatus == projectStatus.deliverableStatus else ProjectDetails.objects.filter(id=deliverableId).update(deliverableStatus=editableStatus)
+        'no changes' if editableNotes == projectStatus.deliverableStatus else ProjectDetails.objects.filter(id=deliverableId).update(deliverableStatus=editableStatus)
+    except Exception as e:
+        print(e)
+        return Response('error')
     return Response('successful')
+ 
+@api_view(['GET'])
+def deliverableStatuses(request):
+    choices = [value for key, value in ProjectDetails.STATUS_CHOICES]
+    return Response(choices) 
 
 @api_view(['POST'])
 def project_notes(request):

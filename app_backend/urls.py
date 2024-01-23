@@ -12,6 +12,7 @@ urlpatterns = [
     path('project_notes', project_notes, name='project_notes'),
     path('project_details_update', project_details_update, name='project_details_update'),
     path('project_deliverables', project_deliverables, name='project_deliverables'),
+    path('deliverableStatuses', deliverableStatuses, name='deliverableStatuses'),
 
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),

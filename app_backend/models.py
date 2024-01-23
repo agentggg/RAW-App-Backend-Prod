@@ -1,15 +1,9 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
-from django.core.validators import RegexValidator
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
-
-REGEX_PHONE_NUMBER = RegexValidator(regex=r'^\d{10}$', message="PHONE MUST BE 10 DIGITS: '4731234567'.")
 
 class CustomUser(AbstractUser):
     color = models.TextField(null=False, blank=False, default='#000')
@@ -37,50 +31,106 @@ class Analytics(models.Model):
     region = models.TextField(null=False, blank=False)
     endpoint = models.TextField(null=False, blank=False)
 
-class Project(models.Model):
-    name = models.TextField(null=False, blank=False)
-    flag = models.TextField(null=False, blank=False)
-    dueDate = models.TextField(null=False, blank=False)
-    shortDescription = models.TextField(null=False, blank=False)
-    longDescription = models.TextField(null=False, blank=False)
-    image = models.TextField(null=False, blank=False)
-    color = models.TextField(null=False, blank=False)
-    initation = models.BooleanField(default=False)
-    planning = models.BooleanField(default=False)
-    execution = models.BooleanField(default=False)
-    live = models.BooleanField(default=False)
-    completed = models.BooleanField(default=False)
-    review = models.BooleanField(default=False)
-    watchers = models.ManyToManyField('CustomUser', related_name='watched_projects')
-    projectType = models.TextField(null=False, blank=False)
-    startDate = models.TextField(null=False, blank=False)
-    projectStakeholders = models.ManyToManyField('CustomUser', related_name='project_stakeholders')
-
+class ProjectType(models.Model):
+    NAME_CHOICES = [
+        ('Relationship', 'Relationship'),
+        ('Evangelism', 'Evangelism'),
+        ('Discipleship', 'Discipleship'),
+    ]
+    name = models.CharField(choices=NAME_CHOICES,max_length=30)
 
     def __str__(self):
         return str(self.name)
 
-class ProjectDetails(models.Model):
+class DeliverableStatus(models.Model):
+    NAME_CHOICES = [
+        ('On Track', 'On Track'),
+        ('At Risk', 'At Risk'),
+        ('Delayed', 'Delayed'),
+        ('Completed', 'Completed'),
+        ('On Hold', 'On Hold'),
+        ('Blocked', 'Blocked'),
+    ]
+    name = models.CharField(choices=NAME_CHOICES, max_length=50, default="On Track")
+
+    def __str__(self):
+        return str(self.name)
+
+class Project(models.Model):
+    PHASE_CHOICES = [
+        ('initiation', 'Initiation'),
+        ('planning', 'Planning'),
+        ('execution', 'Execution'),
+        ('live', 'Live'),
+        ('completed', 'Completed'),
+        ('review', 'Review')
+    ]
+    FLAG_CHOICES = [
+        ('green', 'Green'),
+        ('#ecb753', 'Yellow'),
+        ('red', 'Red')
+    ]
+    COLOR_HEX = [
+    ("#FF0000", "Red"),
+    ("#00FF00", "Green"),
+    ("#0000FF", "Blue"),
+    ("#FFFF00", "Yellow"),
+    ("#FFA500", "Orange"),
+    ("#800080", "Purple"),
+    ("#FFC0CB", "Pink"),
+    ("#A52A2A", "Brown"),
+    ("#FFFFFF", "White"),
+    ("#000000", "Black"),
+    ("#808080", "Grey"),
+    ("#00FFFF", "Cyan"),
+    ("#800000", "Maroon"),
+    ("#008000", "Dark Green"),
+    ("#000080", "Navy")
+]
+    name = models.TextField(null=False, blank=False)
+    flag = models.CharField(choices=FLAG_CHOICES, default='green',max_length=20)
+    color = models.CharField(choices=COLOR_HEX, default='Red', max_length=20 )
+    phase = models.CharField(choices=PHASE_CHOICES, default='initiation', max_length=20 )
+    projectType = models.ForeignKey(ProjectType, on_delete=models.CASCADE)
+    projectStakeholders = models.ManyToManyField(CustomUser, related_name='project_stakeholders')
+    startDate = models.TextField(null=False, blank=False)
+    dueDate = models.TextField(null=False, blank=False)
+    shortDescription = models.TextField(null=False, blank=False)
+    longDescription = models.TextField(null=False, blank=False)
+    image = models.URLField(null=False, blank=False, max_length=200)
+
+    def __str__(self):
+        return str(self.name)
+
+class ProjectDeliverables(models.Model):
+    FLAG_CHOICES = [
+        ('Green', '#7CFC00'),
+        ('Yellow', '#E4D00A'),
+        ('Red', '#C70039')
+    ]
     name = models.ForeignKey(Project, on_delete=models.CASCADE)
     deliverableName = models.TextField()
     deliverableDetails = models.TextField()
     deliverableOwner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_owner')
-    watchers = models.ManyToManyField(CustomUser, related_name='project_details_as_watcher')
-    deliverableStatus = models.TextField()
-    deliverableColor = models.TextField()
-    deliverableCompletion = models.TextField() 
-
+    deliverableStatus = models.ForeignKey(DeliverableStatus, on_delete=models.CASCADE)
+    deliverableColor = models.CharField(
+        choices=FLAG_CHOICES,
+        default='green',
+        max_length=20
+    )
+    deliverableCompletion = models.BooleanField(default=1) 
 
     def __str__(self):
         return str(self.deliverableName)
-    
+
 class ProjectNotes(models.Model):
-    project_details_name = models.ForeignKey(ProjectDetails, on_delete=models.CASCADE)
+    project_deliverable_name = models.ForeignKey(ProjectDeliverables, on_delete=models.CASCADE)
     notes = models.TextField(null=False, blank=False)
     noteAuthor = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    timeStamp = models.TextField(null=False, blank=False)
 
-    def __str__(self):
-        return str(self.project_details_name)
+    def __str__(self): 
+        return str(self.project_deliverable_name)
 
 class ProjectExpense(models.Model):
     projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -89,8 +139,8 @@ class ProjectExpense(models.Model):
     color = models.TextField(null=False, blank=False, default='blue')
 
     def __str__(self):
-        return str(self.projectName)
-    
+        return str(self.projectName)  
+
 class AutomatedNotification(models.Model):
     notification = models.CharField(max_length=255)
     executed = models.BooleanField(default=True)
