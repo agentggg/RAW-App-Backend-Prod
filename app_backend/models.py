@@ -42,20 +42,6 @@ class ProjectType(models.Model):
     def __str__(self):
         return str(self.name)
 
-class DeliverableStatus(models.Model):
-    NAME_CHOICES = [
-        ('On Track', 'On Track'),
-        ('At Risk', 'At Risk'),
-        ('Delayed', 'Delayed'),
-        ('Completed', 'Completed'),
-        ('On Hold', 'On Hold'),
-        ('Blocked', 'Blocked'),
-    ]
-    name = models.CharField(choices=NAME_CHOICES, max_length=50, default="On Track")
-
-    def __str__(self):
-        return str(self.name)
-
 class Project(models.Model):
     PHASE_CHOICES = [
         ('initiation', 'Initiation'),
@@ -89,8 +75,8 @@ class Project(models.Model):
 ]
     name = models.TextField(null=False, blank=False)
     flag = models.CharField(choices=FLAG_CHOICES, default='green',max_length=20)
-    color = models.CharField(choices=COLOR_HEX, default='Red', max_length=20 )
     phase = models.CharField(choices=PHASE_CHOICES, default='initiation', max_length=20 )
+    projectColor = models.CharField(choices=COLOR_HEX, default='#00FF00', max_length=20 )
     projectType = models.ForeignKey(ProjectType, on_delete=models.CASCADE)
     projectStakeholders = models.ManyToManyField(CustomUser, related_name='project_stakeholders')
     startDate = models.TextField(null=False, blank=False)
@@ -103,25 +89,47 @@ class Project(models.Model):
         return str(self.name)
 
 class ProjectDeliverables(models.Model):
-    FLAG_CHOICES = [
-        ('Green', '#7CFC00'),
-        ('Yellow', '#E4D00A'),
-        ('Red', '#C70039')
+    COLOR_HEX = [
+    ("#FF0000", "Red"),
+    ("#00FF00", "Green"),
+    ("#0000FF", "Blue"),
+    ("#FFFF00", "Yellow"),
+    ("#FFA500", "Orange"),
+    ("#800080", "Purple"),
+    ("#FFC0CB", "Pink"),
+    ("#A52A2A", "Brown"),
+    ("#FFFFFF", "White"),
+    ("#000000", "Black"),
+    ("#808080", "Grey"),
+    ("#00FFFF", "Cyan"),
+    ("#800000", "Maroon"),
+    ("#008000", "Dark Green"),
+    ("#000080", "Navy")
+]
+    PHASE_CHOICES = [
+        ('On Track', 'On Track'),
+        ('At Risk', 'At Risk'),
+        ('Delayed', 'Delayed'),
+        ('Completed', 'Completed'),
+        ('On Hold', 'On Hold'),
+        ('Blocked', 'Blocked'),
     ]
-    name = models.ForeignKey(Project, on_delete=models.CASCADE)
+    FLAG_CHOICES = [
+        ('green', 'Green'),
+        ('#ecb753', 'Yellow'),
+        ('red', 'Red')
+    ]
     deliverableName = models.TextField()
-    deliverableDetails = models.TextField()
+    projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
+    deliverableStatus = models.CharField(choices=PHASE_CHOICES, default='initiation', max_length=20)
+    deliverableStatusColor = models.CharField(choices=FLAG_CHOICES, default='initiation', max_length=20)
+    deliverableColor = models.CharField(choices=COLOR_HEX, default='green', max_length=20)
     deliverableOwner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_owner')
-    deliverableStatus = models.ForeignKey(DeliverableStatus, on_delete=models.CASCADE)
-    deliverableColor = models.CharField(
-        choices=FLAG_CHOICES,
-        default='green',
-        max_length=20
-    )
-    deliverableCompletion = models.BooleanField(default=1) 
+    deliverableDetails = models.TextField() 
+    deliverableCompleted = models.BooleanField(default=False) 
 
     def __str__(self):
-        return str(self.deliverableName)
+        return str(f'Deliverable {self.deliverableName} for the {self.projectName} project owned by {self.deliverableOwner}')
 
 class ProjectNotes(models.Model):
     project_deliverable_name = models.ForeignKey(ProjectDeliverables, on_delete=models.CASCADE)

@@ -394,11 +394,42 @@ def save_push_token(request):
 @api_view(['POST'])
 def project_info(request):
     infoType = request.data.get('infoType', False)
+    projectId = request.data.get('projectId', False)
     if infoType == 'project':
-        projectDetails = Project.objects.select_related('projectType').prefetch_related('projectStakeholders').values()
-        return Response(projectDetails)
-    return Response(None)
+        projectInfo = Project.objects.select_related('projectType').prefetch_related('projectStakeholders').values('projectType__name','id', 'name','flag','phase','projectStakeholders','projectStakeholders','startDate','dueDate','shortDescription','longDescription','image','projectStakeholders__first_name','projectStakeholders__username','projectColor')
+        projectInfo = list(projectInfo)
+        seen = set()
+        unique_projects = []
 
+        for item in projectInfo:
+            if item['id'] not in seen:
+                seen.add(item['id'])
+                unique_projects.append(item)
+        return Response(unique_projects)
+    elif infoType == 'project_details':
+        projectInfo = ProjectDeliverables.objects.filter(projectName=projectId).select_related('projectType').prefetch_related('projectStakeholders').values()
+        projectInfo = list(projectInfo)
+        seen = set()
+        unique_projects = []
+
+        for item in projectInfo:
+            if item['id'] not in seen:
+                seen.add(item['id'])
+                unique_projects.append(item)
+        return Response(unique_projects)
+    elif infoType == 'stakeholders':
+        projectInfo = Project.objects.filter(id=projectId).prefetch_related('projectStakeholders').values("projectStakeholders__first_name","projectStakeholders__last_name")
+    elif infoType == 'deliverablesPercentage':
+        allDeliverables = ProjectDeliverables.objects.filter(projectName=projectId).values()
+        completedCount = sum(1 for eachDeliverable in allDeliverables if eachDeliverable.get('deliverableCompleted') == True)
+        deliverablesTotal = len(allDeliverables)
+        projectInfo = completedCount / deliverablesTotal
+    elif infoType == 'deliverables':
+        projectInfo = ProjectDeliverables.objects.filter(projectName=projectId).values()
+        print(f"==>> projectInfo: {projectInfo}")
+    return Response(projectInfo)
+
+ 
 @api_view(['POST'])
 def project_cost(request):
     try:
