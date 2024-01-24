@@ -425,8 +425,12 @@ def project_info(request):
         deliverablesTotal = len(allDeliverables)
         projectInfo = completedCount / deliverablesTotal
     elif infoType == 'deliverables':
-        projectInfo = ProjectDeliverables.objects.filter(projectName=projectId).values()
-        print(f"==>> projectInfo: {projectInfo}")
+        projectInfo = ProjectDeliverables.objects.filter(projectName=projectId).values(
+            'deliverableOwner__first_name','deliverableOwner__last_name',
+            'deliverableName','projectName','deliverableStatus','deliverableStatusColor',
+            'deliverableColor','deliverableOwner','deliverableDetails','deliverableCompleted',
+            'deliverableStartDate','deliverableEndDate'
+            )
     return Response(projectInfo)
 
  

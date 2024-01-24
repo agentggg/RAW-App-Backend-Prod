@@ -127,6 +127,9 @@ class ProjectDeliverables(models.Model):
     deliverableOwner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_owner')
     deliverableDetails = models.TextField() 
     deliverableCompleted = models.BooleanField(default=False) 
+    deliverableStartDate = models.TextField(null=False, blank=False, default = '01-12-2024')
+    deliverableEndDate = models.TextField(null=False, blank=False, default= '09-01-2024')
+
 
     def __str__(self):
         return str(f'Deliverable {self.deliverableName} for the {self.projectName} project owned by {self.deliverableOwner}')
