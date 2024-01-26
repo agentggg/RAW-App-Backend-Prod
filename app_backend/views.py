@@ -433,6 +433,29 @@ def project_info(request):
             )
     return Response(projectInfo)
 
+@api_view(['POST'])
+def my_deliverables(request):
+    infoType = request.data.get('infoType', False)
+    projectId = request.data.get('projectId', False)
+    username = request.data.get('username', False)
+    try:
+        usernameInstance = CustomUser.objects.get(username=username).id
+        if infoType == 'deliverablesPercentage':
+            allDeliverables = ProjectDeliverables.objects.filter(deliverableOwner=usernameInstance).values()
+            completedCount = sum(1 for eachDeliverable in allDeliverables if eachDeliverable.get('deliverableCompleted') == True)
+            deliverablesTotal = len(allDeliverables)
+            projectInfo = completedCount / deliverablesTotal
+        elif infoType == 'delvierables':
+            projectInfo = ProjectDeliverables.objects.filter(deliverableOwner=usernameInstance).values(
+                'projectName__name','deliverableName','deliverableStatus','deliverableStatusColor',
+                'deliverableColor','deliverableOwner','deliverableDetails','deliverableCompleted',
+                'deliverableStartDate','deliverableEndDate'
+                ) 
+            return Response(projectInfo) 
+    except Exception as e:
+        print(e)
+        return Response('error')
+
  
 @api_view(['POST'])
 def project_cost(request):
