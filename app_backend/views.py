@@ -456,7 +456,19 @@ def my_deliverables(request):
         print(e)
         return Response('error')
 
- 
+@api_view(['POST'])
+def my_notes(request):
+    deliverableOwner = request.data.get('deliverableOwner', False)
+    deliverableName = request.data.get('deliverableName', False)
+    project_deliverable_name_instance = ProjectDeliverables.objects.get(deliverableName=deliverableName).id
+    notes = ProjectNotes.objects.filter(noteAuthor=deliverableOwner, project_deliverable_name=project_deliverable_name_instance).values(
+        'noteAuthor__username',
+        'timeStamp',
+        'notes',
+        'project_deliverable_name'
+    )
+    return Response(notes)
+
 @api_view(['POST'])
 def project_cost(request):
     try:
