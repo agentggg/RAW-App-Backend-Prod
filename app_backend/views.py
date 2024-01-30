@@ -466,9 +466,29 @@ def my_notes(request):
         'timeStamp',
         'notes',
         'project_deliverable_name'
-    )
+    ).order_by('-id')
     return Response(notes)
 
+@api_view(['POST'])
+def new_note(request):
+    project_deliverable_name = request.data.get('project_deliverable_name')
+    notes = request.data.get('notes')
+    timeStamp = request.data.get('timeStamp')
+    username = request.data.get('username')
+    noteAuthor = CustomUser.objects.get(username=username)
+    project_deliverable_name = ProjectDeliverables.objects.get(id=project_deliverable_name)
+    try:
+        ProjectNotes.objects.create(
+            project_deliverable_name=project_deliverable_name,
+            notes=notes,
+            timeStamp=timeStamp,
+            noteAuthor=noteAuthor
+        )
+        return Response('successful') 
+    except Exception as e:
+        print(e)
+        return Response('error')
+    return('error')
 @api_view(['POST'])
 def project_cost(request):
     try:

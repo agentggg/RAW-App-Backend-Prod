@@ -16,6 +16,7 @@ urlpatterns = [
 
     path('my_deliverables', my_deliverables, name='my_deliverables'),
     path('my_notes', my_notes, name='my_notes'),
+    path('new_note', new_note, name='new_note'),
 
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),
