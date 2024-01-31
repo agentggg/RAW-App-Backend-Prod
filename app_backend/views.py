@@ -1,4 +1,4 @@
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from exponent_server_sdk import DeviceNotRegisteredError, PushClient, PushMessage, PushServerError, PushTicketError
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -494,51 +494,60 @@ def new_note(request):
 @api_view(['POST'])
 def propose_project(request):
     setView = request.data.get('setView')
-    fullName = request.data.get('fullName', False)
-    print(f"==>> fullName: {fullName}")
-    deliverableName = request.data.get('deliverableName', False)
-    projectName = request.data.get('projectName', False)
-    deliverableColor = request.data.get('deliverableColor', False)
-    deliverableOwner = request.data.get('deliverableOwner', False)
-    deliverableDetails = request.data.get('deliverableDetails', False)
-    deliverableStartDate = request.data.get('deliverableStartDate', False)
-    deliverableEndDate = request.data.get('deliverableEndDate', False)
-    projectColor = request.data.get('projectColor', False)
-    startDate = request.data.get('startDate', False)
-    dueDate = request.data.get('dueDate', False)
-    shortDescription = request.data.get('shortDescription', False)
-    longDescription = request.data.get('longDescription', False)
-    image = request.data.get('image', False)
     if setView == 'getUserProfile':
         data = CustomUser.objects.all().values('first_name','last_name','username')
     if setView == 'projectColors':
         data = Project.objects.all().values('projectColor')
     if setView == 'createProject':
-        project = Project(
-            name=projectName,
-            projectColor=projectColor,
-            startDate=startDate,
-            dueDate=dueDate,
-            shortDescription=shortDescription,
-            longDescription=longDescription,
-            image=image
-        )
-        project.save()
+        username = request.data.get('fullName', False)
+        print(f"==>> username: {username}")
+        deliverableName = request.data.get('deliverableName', False)
+        projectName = request.data.get('projectName', False)
+        deliverableColor = request.data.get('deliverableColor', False)
+        deliverableOwner = request.data.get('deliverableOwner', False)
+        deliverableDetails = request.data.get('deliverableDetails', False)
+        deliverableStartDate = request.data.get('deliverableStartDate', False)
+        deliverableEndDate = request.data.get('deliverableEndDate', False)
+        projectColor = request.data.get('projectColor', False)
+        startDate = request.data.get('startDate', False)
+        projectType = request.data.get('projectType', False)
+        dueDate = request.data.get('dueDate', False)
+        shortDescription = request.data.get('shortDescription', False)
+        longDescription = request.data.get('longDescription', False)
+        image = request.data.get('image', False)
+        project_type_instance = ProjectType.objects.get(name=projectType)
+        with transaction.atomic():
+            project = Project(
+                name=projectName,
+                projectColor=projectColor,
+                startDate=startDate,
+                dueDate=dueDate,
+                shortDescription=shortDescription,
+                longDescription=longDescription,
+                image=image,
+                projectType=project_type_instance
+            )
+            project.save()
 
-        # Get the deliverable owner by username
-        deliverableOwner = CustomUser.objects.get(first=fullName)
+            try:
+                deliverableOwner = CustomUser.objects.get(username=username)
+                print(f"==>> deliverableOwner: {deliverableOwner}")
+            except CustomUser.DoesNotExist:
+                # Rollback the transaction
+                transaction.set_rollback(True)
+                return Response({"error": "User not found"}, status=404)
 
-        # Create and save the project deliverable
-        deliverable = ProjectDeliverables(
-            deliverableName=deliverableName,
-            projectName=project,
-            deliverableColor=deliverableColor,
-            deliverableOwner=deliverableOwner,
-            deliverableDetails=deliverableDetails,
-            deliverableStartDate=deliverableStartDate,
-            deliverableEndDate=deliverableEndDate
-        )
-        deliverable.save()
+            deliverable = ProjectDeliverables(
+                deliverableName=deliverableName,
+                projectName=project,
+                deliverableColor=deliverableColor,
+                deliverableOwner=deliverableOwner,
+                deliverableDetails=deliverableDetails,
+                deliverableStartDate=deliverableStartDate,
+                deliverableEndDate=deliverableEndDate,
+            )
+            deliverable.save()
+            data = "successful"
     return Response(data)
 
 @api_view(['GET', 'POST'])
