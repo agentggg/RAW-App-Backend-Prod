@@ -18,6 +18,9 @@ urlpatterns = [
     path('my_notes', my_notes, name='my_notes'),
     path('new_note', new_note, name='new_note'),
 
+    path('propose_project', propose_project, name='propose_project'),
+    path('upload_image', upload_image, name='upload_image'),
+
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),
     path('deactivate', deactivate, name='deactivate'),

@@ -489,6 +489,95 @@ def new_note(request):
         print(e)
         return Response('error')
     return('error')
+
+
+@api_view(['POST'])
+def propose_project(request):
+    setView = request.data.get('setView')
+    fullName = request.data.get('fullName', False)
+    print(f"==>> fullName: {fullName}")
+    deliverableName = request.data.get('deliverableName', False)
+    projectName = request.data.get('projectName', False)
+    deliverableColor = request.data.get('deliverableColor', False)
+    deliverableOwner = request.data.get('deliverableOwner', False)
+    deliverableDetails = request.data.get('deliverableDetails', False)
+    deliverableStartDate = request.data.get('deliverableStartDate', False)
+    deliverableEndDate = request.data.get('deliverableEndDate', False)
+    projectColor = request.data.get('projectColor', False)
+    startDate = request.data.get('startDate', False)
+    dueDate = request.data.get('dueDate', False)
+    shortDescription = request.data.get('shortDescription', False)
+    longDescription = request.data.get('longDescription', False)
+    image = request.data.get('image', False)
+    if setView == 'getUserProfile':
+        data = CustomUser.objects.all().values('first_name','last_name','username')
+    if setView == 'projectColors':
+        data = Project.objects.all().values('projectColor')
+    if setView == 'createProject':
+        project = Project(
+            name=projectName,
+            projectColor=projectColor,
+            startDate=startDate,
+            dueDate=dueDate,
+            shortDescription=shortDescription,
+            longDescription=longDescription,
+            image=image
+        )
+        project.save()
+
+        # Get the deliverable owner by username
+        deliverableOwner = CustomUser.objects.get(first=fullName)
+
+        # Create and save the project deliverable
+        deliverable = ProjectDeliverables(
+            deliverableName=deliverableName,
+            projectName=project,
+            deliverableColor=deliverableColor,
+            deliverableOwner=deliverableOwner,
+            deliverableDetails=deliverableDetails,
+            deliverableStartDate=deliverableStartDate,
+            deliverableEndDate=deliverableEndDate
+        )
+        deliverable.save()
+    return Response(data)
+
+@api_view(['GET', 'POST'])
+def upload_image(request):
+    if request.method == 'POST':
+        import random
+        import datetime
+        import cloudinary.uploader
+
+        try:
+            cloud_name = "dxhcnn7k3"
+            api_key = "989734149712141"
+            api_secret = "j6XSOzQQTfMeXTPXYQNXvOB8Kaw"
+
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret
+            )
+
+            current_time_with_milliseconds = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            cleaned_time = current_time_with_milliseconds.replace('-', '').replace(':', '').replace('.', '').replace(' ', '')
+            random_number = str(random.randint(100000000000, 999999999999))
+            final_string = random_number + cleaned_time
+            new_file_name = final_string
+
+            uploaded_image = request.FILES['image']
+            upload_result = cloudinary.uploader.upload(uploaded_image, public_id=new_file_name)
+
+            url = upload_result['secure_url']
+
+
+            return Response(url)
+        except Exception as e:
+            return Response("unsuccesful")
+    return Response('good')
+
+
+
 @api_view(['POST'])
 def project_cost(request):
     try:
