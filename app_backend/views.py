@@ -283,21 +283,23 @@ def send_notifications(request):  # sourcery skip: avoid-builtin-shadow
     analytics(request, "Sent Push Notification")
     message = request.data.get('message', False)
     setView = request.data.get('setView', False)
-    if setView == "friendNotification":
-        contactType = request.data.get('contactType', False)
-        if contactType == 'username':
-            contactDetail = request.data.get('contactDetail', False) #returns the new friend username
-            contactUsername = CustomUser.objects.filter(profile_name=contactDetail).values_list('id')[0][0] #returns the new friend profile id number
+    projectName = request.data.get('projectName', False)
+    if setView == "projectProposal":
+        username = ["agentofgod"]
+        message = (f"New project, {projectName}, has been submitted. Please review and submit feedback")
+        for eachUsername in username:
+            receiverToken = CustomUser.objects.filter(username=eachUsername).values_list('id')[0][0] #returns the new friend profile id number
             try:
-                token = PushToken.objects.filter(username=contactUsername).values_list('push_token', flat=True)[0]
+                token = PushToken.objects.filter(username=receiverToken).values_list('push_token', flat=True)[0]
             except Exception as e:
                 print('error')
                 token = ""
-    if token == "":
-        return Response('noToken')
-    else:
-        send_push_message(token, message, extra=None)
-        return Response('dispatched')
+            if token == "":
+                print("No token")
+            else:
+                send_push_message(token, message, extra=None)
+    return Response('dispatched')
+        
 
 
 
@@ -494,28 +496,34 @@ def new_note(request):
 @api_view(['POST'])
 def propose_project(request):
     setView = request.data.get('setView')
+
     if setView == 'getUserProfile':
-        data = CustomUser.objects.all().values('first_name','last_name','username')
-    if setView == 'projectColors':
-        data = Project.objects.all().values('projectColor')
-    if setView == 'createProject':
-        username = request.data.get('fullName', False)
-        print(f"==>> username: {username}")
-        deliverableName = request.data.get('deliverableName', False)
-        projectName = request.data.get('projectName', False)
-        deliverableColor = request.data.get('deliverableColor', False)
-        deliverableOwner = request.data.get('deliverableOwner', False)
-        deliverableDetails = request.data.get('deliverableDetails', False)
-        deliverableStartDate = request.data.get('deliverableStartDate', False)
-        deliverableEndDate = request.data.get('deliverableEndDate', False)
-        projectColor = request.data.get('projectColor', False)
-        startDate = request.data.get('startDate', False)
-        projectType = request.data.get('projectType', False)
-        dueDate = request.data.get('dueDate', False)
-        shortDescription = request.data.get('shortDescription', False)
-        longDescription = request.data.get('longDescription', False)
-        image = request.data.get('image', False)
-        project_type_instance = ProjectType.objects.get(name=projectType)
+        users = CustomUser.objects.all().values('first_name', 'last_name', 'username')
+        return Response(list(users), status=status.HTTP_200_OK)
+
+    elif setView == 'projectColors':
+        colors = Project.objects.all().values_list('projectColor', flat=True).distinct()
+        return Response(list(colors), status=status.HTTP_200_OK)
+
+    elif setView == 'createProject':
+        deliverables = request.data.get('deliverables', [])
+        projectName = request.data.get('projectName')
+        projectColor = request.data.get('projectColor')
+        startDate = request.data.get('startDate')
+        projectType = request.data.get('projectType')
+        dueDate = request.data.get('dueDate')
+        shortDescription = request.data.get('shortDescription')
+        longDescription = request.data.get('longDescription')
+        image = request.data.get('image')
+
+        if not all([projectName, projectColor, startDate, projectType, dueDate, shortDescription, longDescription, image]):
+            return Response({"error": "Missing required project fields."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project_type_instance = ProjectType.objects.get(name=projectType)
+        except ProjectType.DoesNotExist:
+            return Response({"error": "Project type not found"}, status=status.HTTP_404_NOT_FOUND)
+
         with transaction.atomic():
             project = Project(
                 name=projectName,
@@ -529,27 +537,31 @@ def propose_project(request):
             )
             project.save()
 
-            try:
-                deliverableOwner = CustomUser.objects.get(username=username)
-                print(f"==>> deliverableOwner: {deliverableOwner}")
-            except CustomUser.DoesNotExist:
-                # Rollback the transaction
-                transaction.set_rollback(True)
-                return Response({"error": "User not found"}, status=404)
+            for deliverable_data in deliverables:
+                owner_username = deliverable_data.get('owner')
+                if not owner_username:
+                    return Response({"error": "Owner username missing in deliverables"}, status=status.HTTP_400_BAD_REQUEST)
+                try:
+                    deliverableOwner = CustomUser.objects.get(username=owner_username)
+                except CustomUser.DoesNotExist:
+                    return Response({"error": f"Deliverable owner {owner_username} not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            deliverable = ProjectDeliverables(
-                deliverableName=deliverableName,
-                projectName=project,
-                deliverableColor=deliverableColor,
-                deliverableOwner=deliverableOwner,
-                deliverableDetails=deliverableDetails,
-                deliverableStartDate=deliverableStartDate,
-                deliverableEndDate=deliverableEndDate,
-            )
-            deliverable.save()
-            data = "successful"
-    return Response(data)
+                deliverable = ProjectDeliverables(
+                    deliverableName=deliverable_data.get('name'),
+                    projectName=project,
+                    deliverableColor=projectColor,  # Assuming the same color as project for simplicity
+                    deliverableOwner=deliverableOwner,
+                    deliverableDetails=deliverable_data.get('details'),
+                    deliverableStartDate=deliverable_data.get('startDate'),
+                    deliverableEndDate=deliverable_data.get('endDate'),
+                )
+                deliverable.save()
 
+        return Response({"message": "Project and deliverables successfully created"}, status=status.HTTP_201_CREATED)
+
+    else:
+        return Response({"error": "Invalid setView value"}, status=status.HTTP_400_BAD_REQUEST)
+    
 @api_view(['GET', 'POST'])
 def upload_image(request):
     if request.method == 'POST':

@@ -119,7 +119,7 @@ class ProjectDeliverables(models.Model):
         ('#ecb753', 'Yellow'),
         ('red', 'Red')
     ]
-    deliverableName = models.TextField(unique=True)
+    deliverableName = models.TextField()
     projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
     deliverableStatus = models.CharField(choices=PHASE_CHOICES, default='initiation', max_length=20)
     deliverableStatusColor = models.CharField(choices=FLAG_CHOICES, default='initiation', max_length=20)
