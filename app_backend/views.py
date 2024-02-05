@@ -535,7 +535,7 @@ def propose_project(request):
                 image=image,
                 projectType=project_type_instance
             )
-            project.save()
+            project.save() 
 
             for deliverable_data in deliverables:
                 owner_username = deliverable_data.get('owner')
@@ -549,7 +549,7 @@ def propose_project(request):
                 deliverable = ProjectDeliverables(
                     deliverableName=deliverable_data.get('name'),
                     projectName=project,
-                    deliverableColor=projectColor,  # Assuming the same color as project for simplicity
+                    deliverableColor=deliverable_data.get('color'),
                     deliverableOwner=deliverableOwner,
                     deliverableDetails=deliverable_data.get('details'),
                     deliverableStartDate=deliverable_data.get('startDate'),
@@ -734,7 +734,6 @@ def create_account(request):
             last_name = request.data.get("lastName", False)
             email = request.data.get("email", False)
             # phone_number = request.data.get("phoneNumber", False)
-            profile_name = request.data.get("profileName", False)
             user = CustomUser.objects.create_user(
                 username = username,
                 password = password,
@@ -742,7 +741,6 @@ def create_account(request):
                 last_name = last_name,
                 email = email,
                 # phone_number = phone_number,
-                profile_name = profile_name
                 )
             user.save()
         return Response("successful")

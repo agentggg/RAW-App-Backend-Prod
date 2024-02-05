@@ -122,7 +122,7 @@ class ProjectDeliverables(models.Model):
     deliverableName = models.TextField()
     projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
     deliverableStatus = models.CharField(choices=PHASE_CHOICES, default='initiation', max_length=20)
-    deliverableStatusColor = models.CharField(choices=FLAG_CHOICES, default='initiation', max_length=20)
+    deliverableStatusColor = models.CharField(choices=FLAG_CHOICES, default='green', max_length=20)
     deliverableColor = models.CharField(choices=COLOR_HEX, default='green', max_length=20)
     deliverableOwner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='project_details_as_owner')
     deliverableDetails = models.TextField() 
