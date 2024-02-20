@@ -4,8 +4,8 @@ import os
 import environ
 env = environ.Env()
 environ.Env.read_env()# reading .env file
-
-
+from django.db.backends.mysql.base import DatabaseWrapper
+DatabaseWrapper.data_types['DateTimeField']='datetime'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRETKEY")
@@ -16,7 +16,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 BASE_URL = "http://localhost:8000"
-
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -33,7 +32,6 @@ INSTALLED_APPS = [
     'django.contrib.admin',
     'django_bootstrap5',
 ]
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -85,21 +83,22 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 #https://stackoverflow.com/questions/43612243/install-mysqlclient-for-django-python-on-mac-os-x-sierra/54521244
 #https://python.plainenglish.io/connect-django-with-database-43f1965565e0
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': env("ENGINE_NAME"),
-    #     'NAME': env("DATABASE_NAME"), #Database Name
-    #     'USER': env("DATABASE_USER"), #Your Postgresql user
-    #     'PASSWORD': env("DATABASE_PASSWORD"), #Your Postgresql password
-    #     'HOST': env("DATABASE_HOST"),
-    #     'PORT': env("DATABASE_PORT")
-    # },
-    # 'OPTIONS': {
-    #     'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
-    #     }    
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        'ENGINE': env("ENGINE_NAME"),
+        'NAME': env("DATABASE_NAME"), #Database Name
+        'USER': env("DATABASE_USER"), #Your Postgresql user
+        'PASSWORD': env("DATABASE_PASSWORD"), #Your Postgresql password
+        'HOST': env("DATABASE_HOST"),
+        'PORT': env("DATABASE_PORT")
+    },
+    'OPTIONS': {
+        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        'charset': 'utf8mb4'
+        }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
 }
 
 
@@ -133,8 +132,10 @@ USE_TZ=False
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.normpath(os.path.dirname(__file__))
-STATIC_URL = '/staticfiles/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'staticfiles'), ]
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static'), ]
+STATIC_ROOT  = os.path.join(BASE_DIR, 'staticfiles')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

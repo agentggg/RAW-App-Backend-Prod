@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import * 
+from .views import *
 
 def trigger_error(request):
     division_by_zero = 1 / 0
@@ -14,12 +14,24 @@ urlpatterns = [
     path('project_deliverables', project_deliverables, name='project_deliverables'),
     path('deliverableStatuses', deliverableStatuses, name='deliverableStatuses'),
 
+    path('update_deliverables', update_deliverables, name='update_deliverables'),
+    path('update_project_meter', update_project_meter, name='update_project_meter'),
+
+    path('announcements', announcements, name='announcements'),
+
+    path('re_occurance_notification', re_occurance_notification, name='re_occurance_notification'),
+    path('re_occurance_notification_execution', re_occurance_notification_execution, name='re_occurance_notification_execution'),
+    path('deliverable_reminder', deliverable_reminder, name='deliverable_reminder'),
+
+
     path('my_deliverables', my_deliverables, name='my_deliverables'),
     path('my_notes', my_notes, name='my_notes'),
     path('new_note', new_note, name='new_note'),
 
     path('propose_project', propose_project, name='propose_project'),
     path('upload_image', upload_image, name='upload_image'),
+    path('get_random_image', get_random_image, name='get_random_image'),
+
 
     path('user_profile', user_profile, name='user_profile'),
     path('token_validation', token_validation, name='token_validation'),
@@ -33,6 +45,8 @@ urlpatterns = [
     path('link_to_app', link_to_app, name='link_to_app'),
     path('alert', alert, name='alert'),
     path('send_blast_emails', send_blast_emails, name='send_blast_emails'),
+
+    path('test_api', test_api, name='test_api'),
 
     path('accounts/', include('django.contrib.auth.urls')),
     # for sentry testing
