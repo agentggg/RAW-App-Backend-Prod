@@ -4,6 +4,24 @@ from django.db.models.signals import post_save
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+from model_utils import FieldTracker
+from django.core.exceptions import ValidationError
+import re
+from datetime import time
+
+def generate_time_choices():
+    times = []
+    for hour in range(24):
+        for minute in [0, 30]:  # Adjust to 0 and 30 for half-hour intervals, or just [0] for hourly
+            times.append((time(hour, minute).strftime('%H:%M'), time(hour, minute).strftime('%H:%M')))
+    return times
+
+def validate_event_image_time(value):
+    pattern = r'^[0-2][0-9]:[0-5][0-9]$'
+    if not re.match(pattern, value):
+        raise ValidationError(
+            'Invalid format. Please use hh:mm in military time.'
+        )
 
 class Role(models.Model):
     name = models.CharField(max_length=30, unique=True)
@@ -15,6 +33,7 @@ class Role(models.Model):
 class CustomUser(AbstractUser):
     color = models.TextField(null=False, blank=False, default='#000')
     profile_access = models.ManyToManyField(Role, blank=True, related_name='users')
+    phone_number = models.TextField(null=True, blank=True, default='#000')
 
     def save(self, *args, **kwargs):
         is_new = self._state.adding
@@ -56,6 +75,7 @@ class ProjectType(models.Model):
     def __str__(self):
         return str(self.name)
 
+
 class Project(models.Model):
     PHASE_CHOICES = [
         ('initiation', 'Initiation'),
@@ -79,7 +99,6 @@ class Project(models.Model):
     ("#800080", "Purple"),
     ("#FFC0CB", "Pink"),
     ("#A52A2A", "Brown"),
-    ("#FFFFFF", "White"),
     ("#000000", "Black"),
     ("#808080", "Grey"),
     ("#00FFFF", "Cyan"),
@@ -103,7 +122,7 @@ class Project(models.Model):
     def __str__(self):
         return str(self.name)
 
-class ProjectDeliverables(models.Model):
+class ProjectDeliverables(models.Model): #updated 4/23
     COLOR_HEX = [
     ("#FF0000", "Red"),
     ("#00FF00", "Green"),
@@ -113,7 +132,6 @@ class ProjectDeliverables(models.Model):
     ("#800080", "Purple"),
     ("#FFC0CB", "Pink"),
     ("#A52A2A", "Brown"),
-    ("#FFFFFF", "White"),
     ("#000000", "Black"),
     ("#808080", "Grey"),
     ("#00FFFF", "Cyan"),
@@ -145,7 +163,9 @@ class ProjectDeliverables(models.Model):
     deliverableStartDate = models.TextField(null=False, blank=False, default = '01-12-2024')
     deliverableEndDate = models.TextField(null=False, blank=False, default= '09-01-2024')
     enabled = models.BooleanField(default=False)
+    markedForReview = models.BooleanField(default=False)
 
+    tracker = FieldTracker(fields=['markedForReview'])
 
     def __str__(self):
         return str(f'Deliverable {self.deliverableName} for the {self.projectName} project owned by {self.deliverableOwner}')
@@ -158,6 +178,11 @@ class ProjectNotes(models.Model):
 
     def __str__(self):
         return str(self.project_deliverable_name)
+
+class DeliverableNotesWatchers:
+    watcher = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='task_owner')
+    project_deliverable = models.ForeignKey(ProjectDeliverables, on_delete=models.CASCADE)
+    projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
 
 class ProjectExpense(models.Model):
     projectName = models.ForeignKey(Project, on_delete=models.CASCADE)
@@ -185,7 +210,6 @@ class MyTask(models.Model):
     ("#800080", "Purple"),
     ("#FFC0CB", "Pink"),
     ("#A52A2A", "Brown"),
-    ("#FFFFFF", "White"),
     ("#000000", "Black"),
     ("#808080", "Grey"),
     ("#00FFFF", "Cyan"),
@@ -219,19 +243,11 @@ class MyTask(models.Model):
 
 class Announcement(models.Model):
     announcementAuthor =  models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='announcementAuthor')
-    announcementDate = models.TextField()
-    announcement = models.TextField(max_length=500)
+    announcementDate = models.TextField(max_length=100)
+    announcement = models.TextField()
 
-class ReOccurance(models.Model):
-    TimeOfDay = [
-        ('08am', '08am'),
-        ('12pm', '12pm'),
-        ('04pm', '04pm'),
-        ('08pm', '08pm'),
-        ('12am', '12am'),
-        ('04am', '04am'),
-        ('06pm', '06pm') 
-    ] 
+class ReOccurance(models.Model): #05/23
+    TimeOfDay = generate_time_choices()
     DayOfWeek = [
         ('Monday', 'Monday'),
         ('Tuesday', 'Tuesday'),
@@ -240,30 +256,84 @@ class ReOccurance(models.Model):
         ('Friday', 'Friday'),
         ('Saturday', 'Saturday'),
         ('Sunday', 'Sunday'),
-    ] 
+    ]
     WeekOfMonth = [
         ('1', '1'),
         ('2', '2'),
         ('3', '3'),
         ('4', '4')
-    ]  
-    username = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    message = models.TextField()
-    taskName = models.TextField()
-    timeSlot = models.CharField(choices=TimeOfDay,max_length=30)
+    ]
+    username = models.ManyToManyField(CustomUser)
+    taskName = models.TextField(null=False, blank=False)
+    message = models.TextField(null=False, blank=False)
+    timeOfEvent = models.CharField(max_length=16, validators=[validate_event_image_time], null=True, blank=True)
     dayOfWeek = models.CharField(choices=DayOfWeek,max_length=30)
     week = models.CharField(choices=WeekOfMonth,max_length=10)
-    
+
     def __str__(self):
-        return f'{self.taskName} notification for {self.username}'
+        return self.taskName
 
+class Event(models.Model):
+    eventName = models.TextField()
+    eventDate = models.TextField()
+    eventNote = models.TextField(null=True, blank=True)
+    eventTime = models.TextField(null=False, blank=False)
+    eventLocation = models.TextField()
+    eventDescription = models.TextField()
+    eventFollower = models.ManyToManyField(CustomUser, related_name='eventFollowers', blank=True)
+    eventWatcher = models.ManyToManyField(CustomUser, related_name='eventWatchers', blank=True)
+    eventNotification = models.ManyToManyField(CustomUser, related_name='eventNotifications', blank=True)
+    eventSubscribers = models.ManyToManyField(Role)
+    eventImageUrl = models.TextField(null=True, blank=True)
+    eventEnable = models.BooleanField(default=False)
+    eventReoccuring = models.BooleanField(default=False, blank=True)
+    reoccuringInfo = models.ForeignKey(ReOccurance, on_delete=models.CASCADE,null=True, blank=True)
 
+    def __str__(self):
+        return self.eventName
+
+class Questions(models.Model):
+    question = models.TextField(null=False, blank=False)
+    answer = models.TextField(null=False, blank=False)
+    date = models.DateTimeField(auto_now=True)
+    rewardAmount = models.IntegerField(null=False, blank=False)
+
+    def __str__(self):
+        return self.question
+
+class AnsweredQuestion(models.Model):
+    username = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True, blank=True)
+    question = models.ForeignKey(Questions, on_delete=models.RESTRICT,null=True, blank=True)
+    questionAttempted = models.BooleanField(default=False)
+    answeredCorrectly = models.BooleanField(default=False)
+    date = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.username} - {self.question.question}"
+
+class Stats(models.Model):
+    username = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True, blank=True)
+    total = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.username} - {self.total} points"
+
+class Rewards(models.Model):
+    rewardName = models.TextField(null=False, blank=False)
+    rewardImage = models.URLField(default=0, null=False, blank=False)
+    pointRequirement = models.IntegerField(default=10, null=False, blank=False)
+    winners = models.ManyToManyField(CustomUser, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.rewardName}"
+
+class EventNotification(models.Model):
+    eventName = models.ForeignKey(Event, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.eventName.eventName}'
 
 @receiver(post_save, sender=CustomUser)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
-
-
-
-from .signals import enable_project, enable_deliverables, notesNotification, automatedNotes

@@ -12,17 +12,20 @@ urlpatterns = [
     path('project_notes', project_notes, name='project_notes'),
     path('project_details_update', project_details_update, name='project_details_update'),
     path('project_deliverables', project_deliverables, name='project_deliverables'),
-    path('deliverableStatuses', deliverableStatuses, name='deliverableStatuses'),
+    path('deliverableStatus', deliverableStatus, name='deliverableStatus'),
 
     path('update_deliverables', update_deliverables, name='update_deliverables'),
     path('update_project_meter', update_project_meter, name='update_project_meter'),
 
-    path('announcements', announcements, name='announcements'),
+    path('test', test, name='test'),
+
+    path('edit_deliverables', edit_deliverables, name='edit_deliverables'),
 
     path('re_occurance_notification', re_occurance_notification, name='re_occurance_notification'),
     path('re_occurance_notification_execution', re_occurance_notification_execution, name='re_occurance_notification_execution'),
     path('deliverable_reminder', deliverable_reminder, name='deliverable_reminder'),
 
+    path('announcements', announcements, name='announcements'),
 
     path('my_deliverables', my_deliverables, name='my_deliverables'),
     path('my_notes', my_notes, name='my_notes'),
@@ -39,17 +42,22 @@ urlpatterns = [
     path('save_push_token', save_push_token, name='save_push_token'),
     path('create_account', create_account, name='create_account'),
     path('login_verification', login_verification, name='login_verification'),
+    path('check-reoccurances/', check_reoccurances, name='check_reoccurances'), #5/23
+
 
     path('send_notifications', send_notifications, name='send_notifications'),
+    path('allUsers', allUsers, name='allUsers'), #updated 4/23
+    path('send_blast', send_blast, name='send_blast'),  #updated 4/8
 
     path('link_to_app', link_to_app, name='link_to_app'),
     path('alert', alert, name='alert'),
     path('send_blast_emails', send_blast_emails, name='send_blast_emails'),
 
-    path('test_api', test_api, name='test_api'),
-
+    path('event', event, name='event'), #5/11
     path('accounts/', include('django.contrib.auth.urls')),
-    # for sentry testing
+    path('questions', questions, name='questions'),
+    path('event_reminders', event_reminders, name='event_reminders'),
+
     path('__debug__/', include('debug_toolbar.urls')),
 
     path('send_blast_email_manually', send_blast_email_manually, name='send_blast_email_manually'),

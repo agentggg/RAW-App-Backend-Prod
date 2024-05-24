@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django.contrib.admin',
     'django_bootstrap5',
+    'model_utils'
 ]
 
 MIDDLEWARE = [
