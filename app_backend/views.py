@@ -167,6 +167,48 @@ Revealed Mysteries Support Team ✨🌙
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+def process_survey_notifications(event_name, survey_name): #05/31
+    landing = {'screenView': 'Homepage'}
+    try:
+        event_instance = Event.objects.get(eventName=event_name)
+        event_data = {
+            'id': event_instance.id,
+            'eventFollower': list(event_instance.eventFollower.values('id', 'username')),
+            'eventWatcher': list(event_instance.eventWatcher.values('id', 'username')),
+            'eventNotification': list(event_instance.eventNotification.values('id', 'username')),
+            'eventSubscribers': [{'id': subscriber.id, 'name': subscriber.name} for subscriber in event_instance.eventSubscribers.all()],
+            'eventName': event_instance.eventName,
+            'eventDate': event_instance.eventDate,
+            'eventNote': event_instance.eventNote,
+            'eventTime': event_instance.eventTime,
+            'eventLocation': event_instance.eventLocation,
+            'eventDescription': event_instance.eventDescription,
+            'eventImageUrl': event_instance.eventImageUrl,
+            'eventEnable': event_instance.eventEnable,
+            'eventReoccuring': event_instance.eventReoccuring,
+            'reoccuringInfo': event_instance.reoccuringInfo.id if event_instance.reoccuringInfo else None,
+        }
+        processed_users = set()
+
+        def process_users(user_list, user_role):
+            for eachUser in user_list:
+                print(eachUser)
+                if eachUser['id'] not in processed_users:
+                    try:
+                        userToken = PushToken.objects.get(username=eachUser['id']).push_token
+                        send_push_message(userToken, f'Help the ministry by taking a quick survey for the {survey_name} event', landing)
+                        processed_users.add(eachUser['id'])
+                    except PushToken.DoesNotExist:
+                        print(f"PushToken for {eachUser['username']} ({user_role}) does not exist.")
+                    except Exception as e:
+                        print(f"An error occurred while processing {user_role}: {e}")
+
+        process_users(event_data['eventFollower'], 'eventFollower')
+        process_users(event_data['eventWatcher'], 'eventWatcher')
+        process_users(event_data['eventNotification'], 'eventNotification')
+
+    except Event.DoesNotExist:
+        print(f"Event with name {event_name} does not exist.")
 
 @api_view(['POST'])
 def send_blast_emails(request):
@@ -264,157 +306,61 @@ def send_blast(request):
 
 @api_view(['GET', 'POST'])
 def test(request):
-    # Query to create a 'full_name' and filter based on the full name 'Stevenson Gerard'
-    user = CustomUser.objects.annotate(
-        full_name=Concat('first_name', Value(' '), 'last_name', output_field=CharField())
-    ).get(full_name="Stevenson Gerard")
+    import random
+    questions_data = [
+        # Easy Questions (Reward 1-3)
+        ("What is the first book of the Bible?", "Genesis", "Genesis", "Exodus", "Leviticus", "Numbers", 1),
+        ("Who built the ark?", "Noah", "Moses", "Noah", "David", "Solomon", 1),
+        ("Who was swallowed by a great fish?", "Jonah", "Jonah", "Peter", "Paul", "Daniel", 2),
+        ("In what city was Jesus born?", "Bethlehem", "Nazareth", "Bethlehem", "Jerusalem", "Capernaum", 1),
+        ("Who brought Jesus gifts when he was born?", "The wise men", "The shepherds", "The wise men", "John the Baptist", "The Pharisees", 2),
+        ("What is the eighth commandment?", "Thou shall not steal", "Thou shall not steal", "Thou shall not kill", "Thou shall not commit adultery", "Thou shall not covet", 2),
+        ("Who is the angel who told Mary she would give birth to Jesus?", "Gabriel", "Michael", "Gabriel", "Raphael", "Uriel", 3),
+        ("On which day did Jesus rise from the dead?", "Third day", "Second day", "Third day", "Fourth day", "Fifth day", 3),
+        ("What was Jesus' crown made of?", "Thorns", "Gold", "Silver", "Thorns", "Bronze", 3),
+        ("Where does Jesus give his first sermon?", "On the mount", "In the temple", "On the mount", "By the sea", "In the synagogue", 2),
 
-    # print(request.data)
-    # def create_users():
-    #     existing_usernames = set(CustomUser.objects.values_list('username', flat=True))
+        # Medium Questions (Reward 4-6)
+        ("Who baptized Jesus and in what river?", "John the Baptist in the River Jordan", "Peter in the Sea of Galilee", "John the Baptist in the River Jordan", "Paul in the Tigris", "James in the Nile", 4),
+        ("Name the first two apostles to follow Jesus.", "Peter and Andrew", "James and John", "Peter and Andrew", "Matthew and Thomas", "Philip and Nathanael", 4),
+        ("What was the profession of Simon Peter before following Jesus?", "Fisherman", "Tax collector", "Fisherman", "Carpenter", "Shepherd", 4),
+        ("Where did Jesus turn water into wine?", "Cana", "Nazareth", "Bethlehem", "Cana", "Jericho", 5),
+        ("How many days was Lazarus dead before Jesus came to visit?", "Four", "Three", "Four", "Five", "Two", 5),
+        ("What is the name of the garden where Jesus went to pray after the Last Supper?", "Garden of Gethsemane", "Garden of Eden", "Garden of Gethsemane", "Garden of Olives", "Garden of Bethany", 5),
+        ("After Jesus fed 5,000 people, how many baskets of food were left over?", "Twelve", "Five", "Seven", "Twelve", "Four", 5),
+        ("What color are the four horses in the Book of Revelation?", "White, Red, Black, and Pale", "White, Red, Blue, and Green", "White, Red, Black, and Pale", "White, Yellow, Black, and Pale", "White, Red, Black, and Grey", 6),
+        ("How old was Jesus when he started his ministry?", "Thirty", "Twenty-five", "Thirty", "Thirty-three", "Forty", 5),
+        ("After Jesus was crucified, who took His body down from the cross?", "Joseph of Arimathea", "Nicodemus", "Joseph of Arimathea", "Simon Peter", "John the Apostle", 6),
 
-    #     # Create 10 users (excluding existing usernames)
-    #     for _ in range(10):
-    #         username = fake.user_name()
-    #         while username in existing_usernames:
-    #             username = fake.user_name()
-    #         email = fake.email()
-    #         password = fake.password()
-    #         first_name = fake.name()
-    #         last_name = fake.name()
-    #         CustomUser.objects.create_user(username=username, email=email, password=password, first_name=first_name, last_name=last_name )
-    #         existing_usernames.add(username)
+        # Hard Questions (Reward 7-10)
+        ("Who is considered the 13th apostle to replace Judas Iscariot?", "Matthias", "Paul", "Barnabas", "Matthias", "Timothy", 8),
+        ("At King Herod's birthday party, what unusual gift did he grant his stepdaughter?", "The head of John the Baptist", "A golden crown", "The head of John the Baptist", "A horse", "A palace", 8),
+        ("What city mentioned in the Book of Revelation is also the name of an American city?", "Philadelphia", "Bethlehem", "Philadelphia", "Jericho", "Nazareth", 7),
+        ("Name the shortest verse in the Bible.", "Jesus wept.", "Rejoice always", "Pray without ceasing", "Jesus wept.", "God is love", 7),
+        ("Who watched as Moses floated in the basket down the Nile?", "His Sister Miriam", "His Mother Jochebed", "Pharaoh's daughter", "His Sister Miriam", "Aaron", 8),
+        ("Who would have nothing to do with the author of 3 John?", "Diotrephes", "Demetrius", "Diotrephes", "Gaius", "The Elder", 9),
+        ("In the book of Philemon, who is Paul's fellow prisoner?", "Epaphras", "Timothy", "Epaphras", "Tychicus", "Archippus", 8),
+        ("James used the example of which Old Testament figure to demonstrate how the prayers of a righteous man can have powerful results?", "Elijah", "Moses", "Elijah", "David", "Solomon", 9),
+        ("How does the author of 1 John often refer to his readers?", "Children", "Beloved", "Children", "Brethren", "Friends", 8),
+        ("Who pretended to be mad to avoid capture and death at the hands of an enemy king?", "David", "Saul", "David", "Jonathan", "Absalom", 10),
+    ]
 
-    # def create_projects():
-    #     create_users()
+    # Shuffle the questions
+    random.shuffle(questions_data)
 
-    #     # Get all available ProjectType objects
-    #     project_types = ProjectType.objects.all()
+    for question_data in questions_data:
+        question, answer, option1, option2, option3, option4, reward = question_data
+        Questions.objects.create(
+            question=question,
+            answer=answer,
+            option1=option1,
+            option2=option2,
+            option3=option3,
+            option4=option4,
+            rewardAmount=reward
+        )
 
-    #     # Create 5 projects
-    #     for _ in range(5):
-    #         project_name = fake.company()
-    #         start_date = fake.date()
-    #         due_date = fake.date()
-    #         short_description = fake.text()
-    #         long_description = fake.text()
-    #         image_url = fake.image_url()
-    #         enabled = fake.boolean()
-
-    #         # Choose a random ProjectType object for the project
-    #         project_type = choice(project_types)
-
-    #         project = Project.objects.create(
-    #             name=project_name,
-    #             startDate=start_date,
-    #             dueDate=due_date,
-    #             shortDescription=short_description,
-    #             longDescription=long_description,
-    #             image=image_url,
-    #             enabled=enabled,
-    #             projectType=project_type  # Assign the chosen ProjectType
-    #         )
-
-    #         create_deliverables(project)
-    #         create_expenses(project)
-    #         create_tasks(project)
-
-    # def create_deliverables(project):
-    #     # Get all existing users
-    #     users = CustomUser.objects.all()
-
-    #     # Create 20 deliverables for each project
-    #     for _ in range(20):
-    #         deliverable_name = fake.text()
-    #         deliverable_status = fake.random_element(elements=('On Track', 'At Risk', 'Delayed', 'Completed', 'On Hold', 'Blocked'))
-    #         deliverable_status_color = fake.random_element(elements=('green', '#ecb753', 'red'))
-    #         deliverable_color = fake.random_element(elements=('#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FFA500', '#800080', '#FFC0CB', '#A52A2A', '#000000', '#808080', '#00FFFF', '#800000', '#008000', '#000080'))
-    #         deliverable_completed = fake.boolean()
-    #         deliverable_start_date = fake.date()
-    #         deliverable_end_date = fake.date()
-    #         enabled = fake.boolean()
-    #         deliverableDetails = fake.text()
-    #         # Choose a random user as the deliverable owner
-    #         deliverable_owner = choice(users)
-
-    #         project_deliverable = ProjectDeliverables.objects.create(
-    #             deliverableName=deliverable_name,
-    #             projectName=project,
-    #             deliverableStatus=deliverable_status,
-    #             deliverableStatusColor=deliverable_status_color,
-    #             deliverableColor=deliverable_color,
-    #             deliverableCompleted=deliverable_completed,
-    #             deliverableStartDate=deliverable_start_date,
-    #             deliverableEndDate=deliverable_end_date,
-    #             deliverableOwner=deliverable_owner,  # Assign the chosen owner
-    #             enabled=enabled
-    #         )
-
-    #         create_project_notes(project_deliverable)
-    # def create_project_notes(project_deliverable):
-    #     # Create 50 project notes per each deliverable
-    #     for _ in range(50):
-    #         notes = fake.text()
-    #         note_author = fake.random_element(CustomUser.objects.all())
-    #         time_stamp = fake.date_time()
-    #         ProjectNotes.objects.create(
-    #             project_deliverable_name=project_deliverable,
-    #             notes=notes,
-    #             noteAuthor=note_author,
-    #             timeStamp=time_stamp
-    #         )
-
-    # # def create_deliverable_watchers(project_deliverable):
-    # #     # Create 3 deliverable notes watchers for each deliverable
-    # #     for _ in range(3):
-    # #         watcher = fake.random_element(CustomUser.objects.all())
-    # #         DeliverableNotesWatchers.objects.create(
-    # #             watcher=watcher,
-    # #             project_deliverable=project_deliverable,
-    # #             projectName=project_deliverable.projectName
-    # #         )
-
-    # def create_expenses(project):
-    #     # Create 12 ProjectExpense for each project
-    #     for _ in range(12):
-    #         cost = fake.random_number(digits=4)
-    #         cost_name = fake.text()
-    #         color = fake.random_element(elements=('#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FFA500', '#800080', '#FFC0CB', '#A52A2A', '#000000', '#808080', '#00FFFF', '#800000', '#008000', '#000080'))
-    #         ProjectExpense.objects.create(
-    #             projectName=project,
-    #             cost=cost,
-    #             costName=cost_name,
-    #             color=color
-    #         )
-
-    # def create_tasks(project):
-    #     # Create 40 MyTask for each project
-    #     for _ in range(40):
-    #         task_name = fake.text()
-    #         task_status = fake.random_element(elements=('On Track', 'At Risk', 'Delayed', 'Completed', 'On Hold', 'Blocked'))
-    #         task_status_color = fake.random_element(elements=('green', '#ecb753', 'red'))
-    #         task_color = fake.random_element(elements=('#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FFA500', '#800080', '#FFC0CB', '#A52A2A', '#000000', '#808080', '#00FFFF', '#800000', '#008000', '#000080'))
-    #         task_owner = fake.random_element(CustomUser.objects.all())
-    #         task_details = fake.text()
-    #         task_completed = fake.boolean()
-    #         task_start_date = fake.date()
-    #         task_end_date = fake.date()
-    #         enabled = fake.boolean()
-    #         MyTask.objects.create(
-    #             taskName=task_name,
-    #             taskStatus=task_status,
-    #             taskStatusColor=task_status_color,
-    #             taskColor=task_color,
-    #             taskOwner=task_owner,
-    #             taskDetails=task_details,
-    #             taskCompleted=task_completed,
-    #             taskStartDate=task_start_date,
-    #             taskEndDate=task_end_date,
-    #             enabled=enabled
-    #         )
-
-    # create_projects()
-    return JsonResponse({'message': 'Dummy data generated successfully'})
+    return Response({"message": "Questions populated successfully."}, status=200)
 
 @api_view(['POST'])
 def alert(request):
@@ -544,19 +490,23 @@ def send_notifications(request):
 
 
 @api_view(['POST'])
-def login_verification(request):#updated 5/11
-    from rest_framework.exceptions import ValidationError
+def login_verification(request):
     try:
         # Initialize your serializer with the request data
         serializer = ObtainAuthToken.serializer_class(data=request.data, context={'request': request})
+
         # Validate the data. If it's not valid, a ValidationError will be raised
         serializer.is_valid(raise_exception=True)
+
         # Get the user from the validated data
         user = serializer.validated_data['user']
+
         # Fetch profile access roles. This assumes the user model has a related 'profile_access' field
         profile_access_roles = user.profile_access.all().values_list('name', flat=True)
+
         # Attempt to get or create the auth token for the user
         token, created = Token.objects.get_or_create(user=user)
+
         # If everything is successful, return the user information and token
         return Response({
             'token': token.key,
@@ -567,17 +517,16 @@ def login_verification(request):#updated 5/11
             'active': user.is_active,
             'profile_access': list(profile_access_roles)
         })
+
     except ValidationError as e:
+        print(e)
         # Handle validation errors from serializer.is_valid()
         return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
-    except User.DoesNotExist:
-        # Handle case where the user does not exist
-        return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
-
     except Exception as e:
-        # Catch any other unexpected errors
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Handle any other exceptions that may occur
+        print(e)
+        return Response({"errors": "An unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET', 'POST'])
 def token_validation(request):
@@ -870,7 +819,7 @@ def new_note(request):
 def profile_access(request):
     return Response('hi')
 
-@api_view(['POST','GET']) #5/21
+@api_view(['POST','GET']) #5/30
 def re_occurance_notification(request):
     setView = request.data.get('setView', False)
     if setView == 'createTask':
@@ -920,14 +869,9 @@ def re_occurance_notification(request):
             if errors:
                 return Response('errors')
             return Response('successful')
-
         except Exception as e:
             print(e)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            return Response('successful')
-        except Exception as e:
-            print(e)
-            return Response('error')
     elif setView == 'profiles':
         return Response(CustomUser.objects.all().values())
     elif setView == 'times':
@@ -940,92 +884,15 @@ def re_occurance_notification(request):
         week_dicts = [{week[0]: week[1]} for week in ReOccurance.WeekOfMonth]
         return Response(week_dicts)
     elif setView == 'getTask':
-        return Response(ReOccurance.objects.all().order_by('-id').values('username__username','message', 'timeOfEvent','dayOfWeek','taskName','id'))
+        data = ReOccurance.objects.all().order_by('-id')
+        response = ReOccuranceSerializers(data, many=True).data
+        return Response(response)
     elif setView == 'getSpecifcTask':
         username = request.data.get('username', False)
         username_id = get_object_or_404(CustomUser, username=username)
         allTask = ReOccurance.objects.filter(username=username_id)
         allTaskInstance = ReOccuranceSerializers(allTask, many=True)
         return Response(allTaskInstance.data)
-
-
-@api_view(['POST','GET'])
-def re_occurance_notification_execution(request):
-    from datetime import datetime
-    import calendar
-    # Get current date and time
-    now = datetime.now()
-    # Get current day of the week
-    today = now.strftime('%A')
-    now_utc = datetime.utcnow()
-    print(f"==>> now_utc: {now_utc}")
-    # Define the EST timezone
-    est = pytz.timezone('US/Eastern')
-    # Convert the current time to EST
-    now_est = now_utc.replace(tzinfo=pytz.utc).astimezone(est)
-    today_est = now_est.strftime('%A')
-    print(f"==>> today: {today_est}")
-    # Get current hour in am/pm format
-    current_hour_ampm = now.strftime('%I%p').lower()
-    print(f"==>> current_hour_ampm: {current_hour_ampm}")
-    # Convert the current time to EST
-    now_est = now_utc.astimezone(est)
-    print(f"==>> now_est: {now_est}")
-    # Format the time in the desired format and convert to lowercase
-    current_hour_ampm = now_est.strftime('%I%p').lower()
-    print(f"==>> current_hour_ampm: {current_hour_ampm}")
-    first_day_of_month_weekday, _ = calendar.monthrange(now_est.year, now_est.month)
-    print(f"==>> first_day_of_month_weekday: {first_day_of_month_weekday}")
-    day_of_month = now_est.day
-    print(f"==>> day_of_month: {day_of_month}")
-    # Calculate week number of the month
-    week_number = ((day_of_month + first_day_of_month_weekday - 1) // 7) + 1
-    print(f"==>> week_number: {week_number}")
-    # integer format
-    try:
-        allEntries = ReOccurance.objects.all()
-        for eachEntries in allEntries:
-            print(f"==>> eachEntries: {eachEntries.reoccuringEvent}")
-            try:
-                if eachEntries.reoccuringEvent == True:
-                    eventInfo = Event.objects.get(eventName=eachEntries.taskName)
-                    message = f'Friendly reminder about the {eachEntries.taskName} event. The event is scheduled for {eventInfo.eventDate} at {eventInfo.eventLocation}. Hope to see you there!'
-                else:
-                    message = eachEntries.message
-                if eachEntries.dayOfWeek == today:
-                    print('found for today')
-                    if week_number == int(eachEntries.week):
-                        print(f"==>> week_number: {week_number}")
-                        print('found for the Week Of Month')
-                        if eachEntries.timeSlot == current_hour_ampm:
-                            print(eachEntries.timeSlot)
-                            print('found for the current hour')
-                            event_id = ReOccurance.objects.get(id=eachEntries.id)
-                            print(f"==>> event_id: {event_id}")
-                            contacts = [eachContact.username for eachContact in event_id.username.all()]
-                            print(f"==>> contacts: {contacts}")
-                            for eachNotificationUsername in contacts:
-                                username_instance = CustomUser.objects.get(username=eachNotificationUsername)
-                                print(f"==>> username_instance: {username_instance}")
-                                userToken = PushToken.objects.filter(username_id=username_instance).values_list('push_token', flat=True)[0]
-                                print(f"==>> userToken: {userToken}")
-                                landing = {'screenView':'Stewardship'}
-                                send_push_message(userToken, message, extra=landing)
-                                break
-                        else:
-                            print('not for this hour')
-                    else:
-                        print('not for this week')
-                else:
-                    print('not for today')
-            except Exception as e:
-                print(f'error {e}')
-                return Response('error')
-    except Exception as e:
-        print(f'error {e}')
-        return Response('error')
-    return Response('successful')
-
 
 
 @api_view(['POST','GET'])
@@ -1439,7 +1306,7 @@ def create_account(request):
             first_name = request.data.get("firstName", False)
             last_name = request.data.get("lastName", False)
             email = request.data.get("email", False)
-            phone_number = request.data.get("phoneNumber", False)
+            phone_number = request.data.get("phone_number", False)
             user = CustomUser.objects.create_user(
                 username = username,
                 password = password,
@@ -1451,6 +1318,11 @@ def create_account(request):
             user.save()
             admin = CustomUser.objects.get(username='agentofgod')
             token = PushToken.objects.get(username=admin)
+            username_id = CustomUser.objects.get(username=username)
+            Stats.objects.create(
+                username=username_id,
+                total=0
+            )
             send_push_message(token.push_token, f'{username} created a new account. Approval needed')
         return Response("successful")
     except IntegrityError as e:
@@ -1481,14 +1353,16 @@ def deactivate(request):
         return Response('unsuccessful')
 
 
-@api_view(['POST', 'GET']) #5/11
+
+@api_view(['POST', 'GET']) #5/31
 def event(request):
     setView = request.data.get('setView', False)
+    # print(request.data)
     try:
         if setView == "all_events":
             group = request.data.get('group', False)
             allRolesId = [Role.objects.get(name=eachRole).id  for eachRole in group]
-            filteredEvents = Event.objects.filter(eventSubscribers__id__in=allRolesId, eventEnable=True).prefetch_related('eventFollower').distinct()
+            filteredEvents = Event.objects.filter(eventSubscribers__id__in=allRolesId, eventEnable=True).prefetch_related('eventFollower').distinct().order_by('-id')
             serializedData = EventSerializers(filteredEvents, many=True)
             apiResponse =  serializedData.data
             return Response(apiResponse)
@@ -1577,11 +1451,9 @@ def event(request):
             event_description = request.data.get('eventDescription')
             event_subscriber_ids = request.data.get('eventSubscribers', [])
             event_image_url = request.data.get('eventImageUrl')
-            event_enable = request.data.get('eventEnable', False)
+            # event_enable = request.data.get('eventEnable', False)
             event_reoccuring = request.data.get('eventReoccuring', False)
-            reoccuring_info_id = request.data.get('reoccuringInfo')
-
-            # Create the Event instance
+            # reoccuring_info_id = request.data.get('reoccuringInfo')
             event = Event.objects.create(
                 eventName=event_name,
                 eventDate=event_date,
@@ -1590,24 +1462,199 @@ def event(request):
                 eventLocation=event_location,
                 eventDescription=event_description,
                 eventImageUrl=event_image_url,
-                eventEnable=event_enable,
+                eventEnable=True,
                 eventReoccuring=event_reoccuring,
-                reoccuringInfo_id=reoccuring_info_id
             )
-
             if event_subscriber_ids:
                 subscribers = Role.objects.filter(id__in=event_subscriber_ids)
                 event.eventSubscribers.set(subscribers)
                 send_event_notifications(event)
                 return Response("successful")
+        elif setView == "all_roles":
+            all_roles = Role.objects.all()
+            apiResponse = RoleSerializers(all_roles, many=True).data
         return Response(apiResponse)
     except Exception as e:
         print(e)
         return Response('error')
 
 
+
+@api_view(['POST', 'GET']) #5/31
+def questions(request):
+    from datetime import timedelta
+    from django.utils import timezone
+    fields = ['stats','question', 'answer', 'rewardAmount', 'setView', 'questionAttempted', 'answeredCorrectly', 'username']
+    stats, question, answer, rewardAmount, setView, questionAttempted, answeredCorrectly, username = (request.data.get(field, False) for field in fields)
+    if setView == "create_questions":
+        try:
+            Questions.objects.create(
+                question=question,
+                answer=answer,
+                rewardAmount=rewardAmount
+            )
+        except Exception as e:
+            print('error')
+            response = 'error'
+        response = "successful"
+    elif setView == "get_questions":
+        all_question = Questions.objects.all()
+        response = QuestionSerializer(all_question, many=True).data
+    elif setView == "latest_question":
+        latest_question = Questions.objects.filter(enabled=True).order_by('?').first()
+        contacts = [eachContact.username for eachContact in latest_question.questionAnswered.all()]
+        response = "pass" if username in contacts else QuestionSerializer(latest_question).data
+    elif setView == "answer_queston":
+        try:
+            username_id = CustomUser.objects.get(username=username)
+            question = Questions.objects.get(question=question)
+            AnsweredQuestion.objects.create(
+                username=username_id,
+                question=question,
+                questionAttempted=True,
+                answeredCorrectly=answeredCorrectly
+            )
+
+            question.questionAnswered.add(username_id)
+            if answeredCorrectly == True:
+                currentStats = Stats.objects.get(username=username_id)
+                Stats.objects.filter(username=username_id).update(
+                    total = currentStats.total + question.rewardAmount
+                )
+            response = 'successful'
+        except Exception as e:
+            print(e)
+            response = 'error'
+    elif setView == "stats":
+        allStats =  Stats.objects.all().order_by('-total')
+        response = StatsSerializer(allStats, many=True).data
+    elif setView == "personal_stats":
+        username_id = CustomUser.objects.get(username=username)
+        allStats =  Stats.objects.filter(username=username_id)
+        response = StatsSerializer(allStats, many=True).data
+    elif setView == "rewards":
+        allRewards = Rewards.objects.all()
+        response = RewardsSerializer(allRewards, many=True).data
+    elif setView == "disable":
+        response = "successfully hit the API"
+        try:
+            all_question = Questions.objects.filter(enabled=True)
+            for eachQuestion in all_question:
+                time_elapsed = timezone.now() - eachQuestion.date
+                if time_elapsed > timedelta(hours=24):
+                    Questions.objects.filter(id=eachQuestion.id).update(enabled=False)
+                else:
+                    pass
+        except Exception as e:
+            print(e)
+    return Response(response)
+
+
+@api_view(['POST']) #5/31
+def survey(request):
+    response = 'error'
+    setView = request.data.get('setView', False)
+    if setView == 'create':
+        survey_name = request.data.get('surveyName', False)
+        eventName = request.data.get('eventName', False)
+        question1 = request.data.get('question1', False)
+        question2 = request.data.get('question2', False)
+        question3 = request.data.get('question3', False)
+        question4 = request.data.get('question4', False)
+        question5 = request.data.get('question5', False)
+
+        try:
+            event = Event.objects.get(eventName=eventName)
+        except Event.DoesNotExist:
+            return Response({'error': 'Event not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            event_survey_question = EventSurveyQuestion(
+                surveyName=survey_name,
+                eventName=event,
+                question1=question1,
+                question2=question2,
+                question3=question3,
+                question4=question4,
+                question5=question5,
+                enable=True
+            )
+            event_survey_question.save()
+            process_survey_notifications(eventName, survey_name)
+            return Response('successful')
+        except Exception as e:
+            print(e)
+    if setView == 'getSurvey':
+        username = request.data.get('username', False)
+        try:
+            survey = EventSurveyQuestion.objects.filter(enable=True).latest('id')
+            username = CustomUser.objects.get(username="agentofgod")
+            try:
+                survey = SurveyViewed.objects.get(username=username, survey=survey.id, status=True)
+
+            except Exception as e:
+                print('none')
+                response = EventSurveyQuestionSerializer(survey).data
+        except Exception as e:
+            print(e)
+            return Response ('unsuccessful')
+    if setView == 'saveSurvey':
+        survey_name = request.data.get('surveyName', False)
+        eventName = request.data.get('eventName', False)
+        question1 = request.data.get('question1', False)
+        question2 = request.data.get('question2', False)
+        question3 = request.data.get('question3', False)
+        question4 = request.data.get('question4', False)
+        question5 = request.data.get('question5', False)
+        username = request.data.get('username', False)
+        anonymous = request.data.get('anonymous', False)
+        # Retrieve the event instance
+        try:
+            # Retrieve the survey instance
+            survey_instance = EventSurveyQuestion.objects.get(surveyName=survey_name)
+            print(f"==>> survey_instance: {survey_instance}")
+
+            # Determine the user
+            if anonymous:
+                user = CustomUser.objects.get(username=username)
+                print(f"==>> user: {user}")
+            else:
+                user = CustomUser.objects.get(username='Development')
+                print(f"==>> user: {user}")
+
+            # Create the survey response
+            event_survey_response = EventSurveyResponse(
+                surveyName=survey_instance,
+                username=user,
+                answer1=question1,
+                answer2=question2,
+                answer3=question3,
+                answer4=question4,
+                answer5=question5
+            )
+            event_survey_response.save()
+            print(f"==>> event_survey_response: {event_survey_response}")
+
+            # Mark the survey as viewed
+            SurveyViewed.objects.create(
+                username=user,
+                status=True,
+                survey=survey_instance
+            )
+
+            return Response({'response': 'successful'}, status=status.HTTP_200_OK)
+        except EventSurveyQuestion.DoesNotExist:
+            return Response({'error': 'Survey not found'}, status=status.HTTP_404_NOT_FOUND)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f'An error occurred: {e}')
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return Response (response)
+
+
 @api_view(['GET'])
-def check_reoccurances(request):
+def reoccuring_reoccurance_notification(request):
     from django.utils import timezone
     from datetime import datetime, timedelta
     est = pytz.timezone('US/Eastern')
@@ -1630,8 +1677,8 @@ def check_reoccurances(request):
         'Sunday': 6,
     }
     # Condition 1: If it is Sunday and the week of the month matches
-    if today.weekday() == 6 and now.hour == 14:  # Sunday at 2pm
-        upcoming_events = ReOccurance.objects.filter(dayOfWeek='Sunday', week=current_week)
+    if today.weekday() == 6 and now.hour == 15:  # Sunday
+        upcoming_events = ReOccurance.objects.filter(week=current_week)
         client = Client(env("SID"), env("SIDTOKEN"))
         user_events = {}
         for event in upcoming_events:
@@ -1648,7 +1695,10 @@ def check_reoccurances(request):
                 message += f"Activity: {event.taskName}\nWhen: {event.dayOfWeek} {event.timeOfEvent}\n\n"
 
             message += "Once you complete the task, please mark it as complete on the RAW App.\n\nWe are praying for you, and you are important to us. Jesus got you and victory belongs to Jesus and you."
-            client.messages.create(body=message, to=user_info.phone_number, from_='+14704678410')
+            try:
+                client.messages.create(body=message, to=user_info.phone_number, from_='+14704678410')
+            except Exception as e:
+                print(e)
     # Get all events
     events = ReOccurance.objects.all()
 
@@ -1665,149 +1715,110 @@ def check_reoccurances(request):
             for eachContact in contacts:
                 try:
                     eachContactToken = PushToken.objects.get(username=eachContact).push_token
-                    print(f"==>> eachContactToken: {eachContactToken}")
                     send_push_message(eachContactToken, message, landing)
-                    return('successful')
                 except Exception as e:
                     print(e)
-                    return (e)
+
         event_time = datetime.strptime(event.timeOfEvent, '%H:%M').time()
         event_date_time_naive = datetime.combine(today, event_time)
         event_date_time = est.localize(event_date_time_naive)
-
+        event_day = day_of_week_map[event.dayOfWeek]
         if event_date_time > now and now.hour == 22:
-            # Condition 2: If it is 2 days prior to the event at 10pm
+            # Condition 2: If it is 2 days prior to the event
             event_day = day_of_week_map[event.dayOfWeek]
             event_date_in_two_days = (today + timedelta(days=2)).weekday()
             if event_day == event_date_in_two_days:
                 messages.append(f"Two days prior: {event.taskName}")
                 send_notification("2-days", event)
-            # Condition 3: If it is day of the event and 8am
-            if today.weekday() == event_day and time_now.hour == 8:
-                messages.append(f"Day of: {event.taskName}")
-                send_notification("Today", event)
-
-            # Condition 5: If it is the current date and hour
-            if (today == event_date_time.date() and
-                    now.hour == event_date_time.hour and
-                    current_week == event.week and
-                    today.weekday() == day_of_week_map[event.dayOfWeek]):
-                    messages.append(f"Current hour: {event.taskName}")
-                    send_notifications = send_notification("Now", event)
+        # Condition 3: If it is day of the event and 8am
+        if today.weekday() == event_day and time_now.hour == 1:
+            messages.append(f"Day of: {event.taskName}")
+            send_notification("Today", event)
+        # Condition 5: If it is the current date and hour
+        if (today == event_date_time.date() and
+                now.hour == event_date_time.hour and
+                current_week == event.week and
+                today.weekday() == day_of_week_map[event.dayOfWeek]):
+                messages.append(f"Current hour: {event.taskName}")
+                send_notification("Now", event)
 
     return Response({'messages': messages}, status=status.HTTP_200_OK)
 
-@api_view(['POST', 'GET']) #5/24
-def questions(request):
-    fields = ['stats','question', 'answer', 'rewardAmount', 'setView', 'questionAttempted', 'answeredCorrectly', 'username']
-    stats, question, answer, rewardAmount, setView, questionAttempted, answeredCorrectly, username = (request.data.get(field, False) for field in fields)
-    if setView == "create_questions":
-        try:
-            Questions.objects.create(
-                question=question,
-                answer=answer,
-                rewardAmount=rewardAmount
-            )
-        except Exception as e:
-            print('error')
-            response = 'error'
-        response = "successful"
-    elif setView == "get_questions":
-        all_question = Questions.objects.all()
-        response = QuestionSerializer(all_question, many=True).data
-    elif setView == "latest_question":
-        latest_question = Questions.objects.latest('date')
-        response = QuestionSerializer(latest_question).data
-    elif setView == "answer_queston":
-        try:
-            username_id = CustomUser.objects.get(username=username)
-            Questions.objects.create(
-                username=username_id,
-                question=question,
-                questionAttempted=questionAttempted,
-                answeredCorrectly=answeredCorrectly
-            )
-        except Exception as e:
-            print('error')
-            response = 'error'
-    elif setView == "stats":
-        allStats =  Stats.objects.all().order_by('-total')
-        response = StatsSerializer(allStats, many=True).data
-    elif setView == "personal_stats":
-        username_id = CustomUser.objects.get(username=username)
-        allStats =  Stats.objects.filter(username=username_id)
-        response = StatsSerializer(allStats, many=True).data
-    elif setView == "rewards":
-        allRewards = Rewards.objects.all()
-        response = RewardsSerializer(allRewards, many=True).data
 
-    return Response(response)
-
-@api_view(['GET'])
-def event_reminders(request):
+@api_view(['GET']) # 06/06
+def reoccuring_event_notification(request):
+    from django.utils import timezone
     from datetime import datetime, timedelta
-    import pytz
-    response = 'error'
-    allEvents = EventNotification.objects.all()
+    est = pytz.timezone('US/Eastern')
+    now = timezone.now().astimezone(est)
+    messages = []
+    landing = {'screenView':'Stewardship'}
+    current_datetime_est = datetime.now(est)
+    # Day of the week mapping
+    today_date = current_datetime_est.date()
+    # 2024-06-06
+    current_time_est = datetime.now(est)
+    # Get the current time in EST
+    current_hour_est = current_time_est.hour
+
+    events = Event.objects.filter(eventEnable=True)
+    print(f"==>> events: {events}")
+    if len(events) == 0:
+        print('no event')
+        return Response ('No event')
     def send_notification(countdown, event):
-        landing = {'pageView': 'EventsHomepage'}
-        if countdown == "Tomorrow":
-            message = f"Tomorrow is our {event.eventName} event. As RAW is currently interceding in prayer tonight, could you help us pray for 5 minutes?"
+        if countdown == "1-day":
+            message = f"You are 1 day away from the {event.eventName} activity. Thank you for your prayers and support"
         elif countdown == "Today":
-            message = f"Today is the day! {event.eventName}🙏🏾 Check out the details of the event in the Event section of the app"
+            message = f"Today is the day for {event.eventName} activity. Check out the details in the in-app stewardship section"
         elif countdown == "Now":
-            message = f"{event.eventName} ⏰ Let's goooo!🔥🕊️🔥"
-        usernames = eachEvent.eventName.eventNotification.values_list('username', flat=True)
-        for eachUser in usernames:
+            message = f"It's time for {event.eventName}. Let's goooo!🔥🔥"
+        elif countdown == "Done":
+            message = f"Earn Glory Coins by completing a quick survey for our {event.eventName} event that took place yesterday?"
+
+        event_id = Event.objects.get(id=event.id)
+        contacts = [eachContact.id for eachContact in event_id.eventNotification.all()]
+        for eachContact in contacts:
             try:
-                userInfo = CustomUser.objects.get(username=eachUser)
-                userToken = PushToken.objects.get(username=userInfo).push_token
-                print(f"==>> userToken: {eachUser} {userToken}")
-                send_push_message(userToken, message, landing)
+                eachContactToken = PushToken.objects.get(username=eachContact).push_token
+                send_push_message(eachContactToken, message, landing)
             except Exception as e:
                 print(e)
 
-    now_utc = datetime.utcnow()
-    est = pytz.timezone('US/Eastern')
-    now_est = now_utc.replace(tzinfo=pytz.utc).astimezone(est)
+    for event in events:
+        try:
+            date_object = datetime.strptime(event.eventDate, '%m/%d/%Y').date()
+            event_time = datetime.strptime(event.eventTime, '%H:%M').time()
+        except ValueError:
+            print(f"Skipping event with invalid date format: {event.eventDate}")
+            continue
+        event_time = datetime.strptime(event.eventTime, '%H:%M').time()
+        # date_object = datetime.strptime(event.eventDate, '%m/%d/%Y').date()
+        event_hour = event_time.hour
 
-    # Current hour in military time (24-hour format)
-    current_hour = int(now_est.strftime('%H'))
-    today_est = now_est.date()
+        if today_date + timedelta(days=1) == date_object and now.hour == 10:
+            messages.append(f"Two days prior at 10am for: {event.eventName}")
+            print(f'1 day prior notice for {event.eventName}')
+            send_notification("1-day", event)
 
-    if len(allEvents) == 0:
-        response = 'No event'
-    else:
-        for eachEvent in allEvents:
-            try:
-                event_date = datetime.strptime(eachEvent.eventName.eventDate, '%m/%d/%Y').date()
-            except ValueError:
-                print(f"Skipping event with invalid date format: {eachEvent.eventName.eventDate}")
-                continue
+        # 8am, day of.
+        if today_date == date_object and now.hour == 8:
+            messages.append(f"Day of at 8am for: {event.eventName}")
+            print(f'8am reminder for {event.eventName} event')
+            send_notification("Now", event)
 
-            # Parsing the event time
-            try:
-                event_time_parts = eachEvent.eventName.eventTime.split(':')
-                event_hour = int(event_time_parts[0])
-                event_minute = int(event_time_parts[1])
-            except (ValueError, IndexError) as e:
-                print(f"Skipping event with invalid time format: {eachEvent.eventName.eventTime}")
-                continue
+        # event starts now
+        if today_date == date_object and event_hour == current_hour_est:
+            messages.append(f"Now is the start time for: {event.eventName}")
+            print(f'Now Event for {event.eventName}')
+            send_notification("Now", event)
 
-            # Condition for "today 10am"
-            if event_date == today_est and current_hour == 10 and eachEvent.eventName.eventEnable == True:
-                send_notification('Today', eachEvent)
-                print("today 8am")
-
-            # Condition for "now"
-            if event_date == today_est and event_hour == current_hour and eachEvent.eventName.eventEnable == True:
-                send_notification('Now', eachEvent)
-                print("Now")
-
-            # Condition for "tomorrow" at 8am (8:00)
-            if event_date == (today_est + timedelta(days=1)) and current_hour == 8 and eachEvent.eventName.eventEnable == True:
-                send_notification('Tomorrow', eachEvent)
-                print("tomorrow")
-
-            response = 'success'
-    return Response(response)
+        # one day after the event at 10am
+        if date_object < today_date - timedelta(days=1) and current_hour_est == 17:
+            messages.append(f"Event concluded for: {event.eventName}")
+            print(f'event concluded for {event.eventName}')
+            Event.objects.filter(id=event.id).update(
+                eventEnable=False
+            )
+            send_notification("Done", event)
+    return Response({'messages': messages}, status=status.HTTP_200_OK)

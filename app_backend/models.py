@@ -287,16 +287,27 @@ class Event(models.Model):
     eventImageUrl = models.TextField(null=True, blank=True)
     eventEnable = models.BooleanField(default=False)
     eventReoccuring = models.BooleanField(default=False, blank=True)
-    reoccuringInfo = models.ForeignKey(ReOccurance, on_delete=models.CASCADE,null=True, blank=True)
 
     def __str__(self):
         return self.eventName
 
 class Questions(models.Model):
+    questionAnswered = models.ManyToManyField(CustomUser, blank=True)
     question = models.TextField(null=False, blank=False)
     answer = models.TextField(null=False, blank=False)
     date = models.DateTimeField(auto_now=True)
     rewardAmount = models.IntegerField(null=False, blank=False)
+    option1 = models.TextField(null=True, blank=True)
+    option2 = models.TextField(null=True, blank=True)
+    option3 = models.TextField(null=True, blank=True)
+    option4 = models.TextField(null=True, blank=True)
+    enabled = models.BooleanField(default=False, blank=False, null=False)
+
+    def clean(self):
+        # Ensure the answer is one of the option values
+        valid_answers = [self.option1, self.option2, self.option3, self.option4]
+        if self.answer not in valid_answers:
+            raise ValidationError({'answer': 'The answer must be one of the provided options.'})
 
     def __str__(self):
         return self.question
@@ -332,6 +343,41 @@ class EventNotification(models.Model):
 
     def __str__(self):
         return f'{self.eventName.eventName}'
+
+class EventSurveyQuestion(models.Model): #5/31
+    surveyName = models.TextField(null=False, blank=False)
+    eventName = models.ForeignKey(Event, on_delete=models.CASCADE)
+    date = models.DateTimeField(auto_now=True)
+    question1 = models.TextField(null=True, blank=True)
+    question2 = models.TextField(null=True, blank=True)
+    question3 = models.TextField(null=True, blank=True)
+    question4 = models.TextField(null=True, blank=True)
+    question5 = models.TextField(null=True, blank=True)
+    enable = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.surveyName} for {self.eventName.eventName}'
+
+class EventSurveyResponse(models.Model): #5/31
+    surveyName = models.ForeignKey(EventSurveyQuestion, null=True, blank=True, on_delete=models.CASCADE)
+    username = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.CASCADE)
+    date = models.DateTimeField(auto_now=True)
+    answer1 = models.TextField(null=True, blank=True)
+    answer2 = models.TextField(null=True, blank=True)
+    answer3 = models.TextField(null=True, blank=True)
+    answer4 = models.TextField(null=True, blank=True)
+    answer5 = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.surveyName} response for {self.username}'
+
+class SurveyViewed(models.Model):
+    username = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.CASCADE)
+    status = models.BooleanField(default=False)
+    survey = models.ForeignKey(EventSurveyQuestion, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.username} view is {self.status}'
 
 @receiver(post_save, sender=CustomUser)
 def create_auth_token(sender, instance=None, created=False, **kwargs):

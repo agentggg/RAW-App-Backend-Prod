@@ -23,3 +23,6 @@ admin.site.register(AnsweredQuestion) #5/24
 admin.site.register(Stats) #5/24
 admin.site.register(Rewards) #5/24
 admin.site.register(EventNotification)
+admin.site.register(EventSurveyResponse) #5/31
+admin.site.register(EventSurveyQuestion)
+admin.site.register(SurveyViewed)

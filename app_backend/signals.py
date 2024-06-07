@@ -5,6 +5,9 @@ from exponent_server_sdk import DeviceNotRegisteredError, PushClient, PushMessag
 from django.db.models import Q, Count, Min
 import logging
 logger = logging.getLogger(__name__)
+from .serializers import *
+from django.core.exceptions import ObjectDoesNotExist
+
 
 def send_push_message(token, message, extra=None):
     try:
@@ -34,14 +37,12 @@ def send_push_message(token, message, extra=None):
 
 @receiver(pre_save, sender=Project)
 def enable_project(sender, instance, **kwargs):
-    if instance.pk:  # Check if this is an update
+    if instance.pk:
         try:
             old_instance = sender.objects.get(pk=instance.pk)
             if old_instance.enabled != instance.enabled:
                 leadership_role = Role.objects.get(name="Leadership")
                 project_role = Role.objects.get(name="Project Manager")
-
-                # Use Q object to create an OR condition
                 users_leadership_or_project_role = CustomUser.objects.filter(Q(profile_access=leadership_role) | Q(profile_access=project_role))
                 status = 'approved and added to the RAW Project docket' if instance.enabled else 'removed from the RAW project board'
                 message = f'The RAW planning team has {status} the project {instance.name} is now {status}.'
@@ -52,7 +53,7 @@ def enable_project(sender, instance, **kwargs):
                         send_push_message(pushToken, message, extra={'screenView':'Projects'})
         except sender.DoesNotExist:
             print("error")
-            pass  # This is a new instance, so there's no 'enabled' state change to check
+            pass
 
 @receiver(pre_save, sender=ProjectDeliverables)
 def enable_deliverables(sender, instance, **kwargs):
@@ -119,6 +120,7 @@ def enable_deliverables(sender, instance, **kwargs):
             print('error')
             pass
 
+
 @receiver(post_save, sender=ProjectNotes)
 def notesNotification(sender, instance, **kwargs):
     if instance.pk:
@@ -130,6 +132,9 @@ def notesNotification(sender, instance, **kwargs):
         print('not skipping')
         try:
             if instance.project_deliverable_name.deliverableOwner != instance.noteAuthor:
+                deliverableInformation = ProjectDeliverables.objects.filter(id=instance.project_deliverable_name.id).values(
+                    'deliverableColor','deliverableCompleted','deliverableName','deliverableOwner__first_name','deliverableOwner__last_name','deliverableOwner__username','deliverableStatus','id'
+                    )[0]
                 owner = instance.project_deliverable_name.deliverableOwner
                 ownerToken = CustomUser.objects.get(username=owner)
                 try:
@@ -146,7 +151,7 @@ def notesNotification(sender, instance, **kwargs):
                 for eachToken in pushTokenQuery:
                     pushToken = PushToken.objects.filter(push_token = eachToken).values_list('push_token')[0][0]
                     message = f"{instance.noteAuthor} added a new note to the {instance.project_deliverable_name.projectName} project for the {instance.project_deliverable_name.deliverableName} deliverables"
-                    send_push_message(pushToken, message, extra={'screenView':"ViewNotes", "projectId":projectId})
+                    send_push_message(pushToken, message, extra={'screenView':"ViewNotes", "projectId":projectId, "deliverableInformation":deliverableInformation})
         except sender.DoesNotExist:
             print('error')
             pass
@@ -177,25 +182,50 @@ def automatedNotes(sender, instance, created, **kwargs):
                 print('error')
                 pass
 
-@receiver(pre_save, sender=ProjectDeliverables)
-def markedForReview(sender, instance, **kwargs):
-    if instance.pk:
-        try:
-            old_instance = sender.objects.get(pk=instance.pk)
-            if old_instance.markedForReview != instance.markedForReview:
+@receiver(post_save, sender=ProjectDeliverables) #updated app config stuff 4/24
+def markedForReview(sender, instance, created, **kwargs):
+    if not created and instance.tracker.has_changed('markedForReview'):
+        if instance.tracker.previous('markedForReview') == False and instance.markedForReview == True:
+            try:
                 deliverableName = instance.deliverableName
-                print(instance.id)
                 projectName = instance.projectName.name
                 deliverableOwner = instance.deliverableOwner.username
                 project_role = Role.objects.get(name="Project Manager")
-                users_leadership_or_project_role = CustomUser.objects.filter(profile_access=project_role)
-                for projectManagers in users_leadership_or_project_role:
-                    deliverableOwnerToken = CustomUser.objects.filter(username=projectManagers).values_list('id', flat=True).first()
-                    messageFalse = f'{deliverableOwner}, has completed the {deliverableName} for {projectName} project. Please review.'
-                    pushTokenQuery = PushToken.objects.filter(username_id=deliverableOwnerToken).values_list('push_token', flat=True)[0]
-                    send_push_message(pushTokenQuery, messageFalse, extra={'screenView':'My Deliverables'})
+                projectManagers = CustomUser.objects.filter(profile_access=project_role)
+
+                pushTokens = PushToken.objects.filter(username__in=projectManagers).values_list('username_id', 'push_token')
+                token_dict = dict(pushTokens)  # Optimizing token retrieval
+
+                for manager in projectManagers:
+                    pushTokenQuery = token_dict.get(manager.id)
+                    if pushTokenQuery:
+                        message = f'{deliverableOwner} has completed the {deliverableName} for {projectName} project. Please review.'
+                        deliverableInformation = {
+                            'deliverableColor': instance.deliverableColor,
+                            'deliverableCompleted': instance.deliverableCompleted,
+                            'deliverableName': instance.deliverableName,
+                            'deliverableOwner__first_name': instance.deliverableOwner.first_name,
+                            'deliverableOwner__last_name': instance.deliverableOwner.last_name,
+                            'deliverableOwner__username': instance.deliverableOwner.username,
+                            'deliverableStatus': instance.deliverableStatus,
+                            'id': instance.id
+                        }
+                        send_push_message(pushTokenQuery, message, extra={'screenView': deliverableInformation})
+
+            except Exception as e:
+                logging.error(f'Error sending notification: {e}')
+        else:
+            # This else could log or handle cases where 'markedForReview' does not change as expected
+            logging.info('No notification sent: "markedForReview" not changed from False to True.')
+
+@receiver(post_save, sender=ProjectDeliverables) # updated appconfig, and settings for this to work  on 4/24
+def completedDeliverable(sender, instance, created, **kwargs):
+    if not created:  # This ensures we're not dealing with a new record, but an update
+        try:
+            deliverableName = instance.deliverableName
+            print(f"==>> deliverableName: {deliverableName}")
         except Exception as e:
-            print(e, '>>>error')
+            print(e)
 
 
 @receiver(pre_save, sender=ProjectNotes)
@@ -207,7 +237,6 @@ def deleteDuplicates(sender, instance, **kwargs):
         ProjectNotes.objects.filter(notes=item['notes'], noteAuthor=item['noteAuthor'], project_deliverable_name=item['project_deliverable_name']) \
             .exclude(id=item['min_id']) \
             .delete()
-
 
 @receiver(post_save, sender=Event)
 def newEvent(sender, instance, created, **kwargs):
@@ -227,7 +256,139 @@ def newEvent(sender, instance, created, **kwargs):
             print(e)
 
 
+@receiver(post_save, sender=Event)
+def send_notification_to_subscribers(sender, instance, created, **kwargs):
+    if created:
+        send_event_notifications(instance)
 
-# @receiver(post_save, sender=ProjectDeliverables)
-# def updateProjectHealth(sender, instance, created, **kwargs):
-#     if instance.pk:
+
+@receiver(m2m_changed, sender=Event.eventSubscribers.through)
+def notify_subscribers_m2m(sender, instance, action, **kwargs):
+    if action == "post_add":
+        send_event_notifications(instance)
+
+@receiver(post_save, sender=EventSurveyQuestion)
+def send_survey(sender, instance, created, **kwargs):
+    if created:
+        try:
+            landing = {'screenView': 'LandingPage'}
+            event_instance = Event.objects.get(eventName=instance.eventName)
+            event_data = {
+                'id': event_instance.id,
+                'eventFollower': list(event_instance.eventFollower.values('id', 'username')),
+                'eventWatcher': list(event_instance.eventWatcher.values('id', 'username')),
+                'eventNotification': list(event_instance.eventNotification.values('id', 'username')),
+                'eventSubscribers': [{'id': subscriber.id, 'name': subscriber.name} for subscriber in event_instance.eventSubscribers.all()],
+                'eventName': event_instance.eventName,
+                'eventDate': event_instance.eventDate,
+                'eventNote': event_instance.eventNote,
+                'eventTime': event_instance.eventTime,
+                'eventLocation': event_instance.eventLocation,
+                'eventDescription': event_instance.eventDescription,
+                'eventImageUrl': event_instance.eventImageUrl,
+                'eventEnable': event_instance.eventEnable,
+                'eventReoccuring': event_instance.eventReoccuring,
+                # 'reoccuringInfo': event_instance.reoccuringInfo.id if event_instance.reoccuringInfo else None,
+            }
+            processed_users = set()
+
+            def process_users(user_list, user_role):
+                for eachUser in user_list:
+                    print(eachUser)
+                    if eachUser['id'] not in processed_users:
+                        try:
+                            userToken = PushToken.objects.get(username=eachUser['id']).push_token
+                            send_push_message(userToken, f'Help the ministry by taking a quick survey for the {instance.eventName} event', landing)
+                            processed_users.add(eachUser['id'])
+                        except PushToken.DoesNotExist:
+                            print(f"PushToken for {eachUser['username']} ({user_role}) does not exist.")
+                        except Exception as e:
+                            print(f"An error occurred while processing {user_role}: {e}")
+
+            process_users(event_data['eventFollower'], 'eventFollower')
+            process_users(event_data['eventWatcher'], 'eventWatcher')
+            process_users(event_data['eventNotification'], 'eventNotification')
+
+        except Event.DoesNotExist:
+            print(f"Event with name {instance.eventName} does not exist.")
+
+
+
+def send_event_notifications(event):
+    message = f"A new event '{event.eventName}' has been added to the Event board! Check it out. Hopefully you will be able join 😊"
+    landing = {'pageView': 'EventsHomepage'}
+
+    # Get all users associated with the roles in eventSubscribers
+    subscriber_roles = event.eventSubscribers.all()
+    subscribers = CustomUser.objects.filter(profile_access__in=subscriber_roles).distinct()
+
+    for user in subscribers:
+        try:
+            userToken = PushToken.objects.get(username=user).push_token
+            send_push_message(userToken, message, landing)
+        except PushToken.DoesNotExist:
+            print(f"No push token for user {user.username}")
+        except Exception as e:
+            print(f"Error sending notification to {user.username}: {e}")
+
+def camel_case_to_human_readable(name):
+    s1 = re.sub('([a-z])([A-Z])', r'\1 \2', name)
+    return re.sub('([A-Z])([A-Z][a-z])', r'\1 \2', s1).lower()
+
+@receiver(pre_save, sender=ReOccurance)
+def reoccurance_pre_save(sender, instance, **kwargs):
+    if instance.pk:
+        previous = ReOccurance.objects.get(pk=instance.pk)
+        for field in instance._meta.fields:
+            field_name = field.name
+            human_readable_field_name = camel_case_to_human_readable(field_name)
+            if getattr(previous, field_name) != getattr(instance, field_name):
+                if field_name == 'message':
+                    return
+                for user in instance.username.all():
+                    try:
+                        userToken = PushToken.objects.get(username=user).push_token
+                        message = f"The {human_readable_field_name} has been changed in the {instance.taskName} activity"
+                        landing = {'pageView': 'Stewardship'}
+                        send_push_message(userToken, message, landing)
+                    except ObjectDoesNotExist:
+                        pass
+
+@receiver(pre_save, sender=Event)
+def event_pre_save(sender, instance, **kwargs):
+    if instance.pk:
+        previous = Event.objects.get(pk=instance.pk)
+        print(instance.eventName)
+        event_enabled_change = previous.eventEnable == False and instance.eventEnable == True
+        print(f"==>> event_enabled_change: {event_enabled_change}")
+        if event_enabled_change:
+            # Send a custom message when eventEnable changes from False to True
+            subscriber_roles = instance.eventSubscribers.all()
+            subscribers = CustomUser.objects.filter(profile_access__in=subscriber_roles).distinct()
+            unique_users = {user for user in subscribers}
+            print(f"==>> unique_users: {unique_users}")
+            for user in unique_users:
+                try:
+                    userToken = PushToken.objects.get(username=user).push_token
+                    message = f"The event {instance.eventName} has been re-added to the calendar. Go check it out."
+                    landing = {'pageView': 'EventsHomepage'}
+                    send_push_message(userToken, message, landing)
+                except ObjectDoesNotExist:
+                    pass
+
+        for field in instance._meta.fields:
+            field_name = field.name
+            human_readable_field_name = camel_case_to_human_readable(field_name)
+            if field_name not in ['eventFollower', 'eventWatcher', 'eventNotification', 'eventSubscribers', 'eventImageUrl', 'eventEnable']:
+                if getattr(previous, field_name) != getattr(instance, field_name):
+                    subscriber_roles = instance.eventSubscribers.all()
+                    subscribers = CustomUser.objects.filter(profile_access__in=subscriber_roles).distinct()
+                    unique_users = {user for user in subscribers}
+                    for user in unique_users:
+                        try:
+                            userToken = PushToken.objects.get(username=user).push_token
+                            message = f"The {human_readable_field_name} has been changed for the {instance.eventName} event"
+                            landing = {'pageView': 'EventsHomepage'}
+                            send_push_message(userToken, message, landing)
+                        except ObjectDoesNotExist:
+                            pass

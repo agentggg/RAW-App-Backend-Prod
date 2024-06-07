@@ -78,3 +78,17 @@ class RewardsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rewards
         fields = "__all__"
+
+class EventSurveyQuestionSerializer(serializers.ModelSerializer):#5/31
+    eventName = EventSerializers(read_only=True)
+    class Meta:
+        model = EventSurveyQuestion
+        fields = '__all__'
+
+class EventSurveyResponseSerializer(serializers.ModelSerializer):#5/31
+    surveyName = EventSurveyQuestionSerializer(read_only=True)
+    username = OwnerNameSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = EventSurveyResponse
+        fields = '__all__'
